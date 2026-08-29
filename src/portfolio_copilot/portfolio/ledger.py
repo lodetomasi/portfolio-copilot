@@ -131,7 +131,11 @@ def record_decision(record: dict, home: Path | str | None = None) -> DecisionRec
     could cross the min_sample gate off of a single real decision.
     """
     payload = dict(record)
-    payload.setdefault("date", date.today().isoformat())
+    # UTC, not local: evaluate_decisions misura i giorni contro datetime.now(UTC).date();
+    # con date.today() locale una decisione registrata tra le 00:00 e le 02:00 CEST era
+    # datata "domani" per l'UTC → days_held negativo → riga esclusa (bug visto live
+    # 2026-08-30 00:02, test_log_decision_then_decision_quality_applies_bucket_rubric).
+    payload.setdefault("date", datetime.now(UTC).date().isoformat())
     payload.setdefault("id", f"{payload['date']}:{payload['symbol'].upper()}:{payload['action']}")
     payload["symbol"] = payload["symbol"].upper()
     rec = DecisionRecord(**payload)
