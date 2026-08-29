@@ -2,12 +2,15 @@
 scoring logic over free, point-in-time-honest data (see portfolio/picker_backtest.py for
 exactly what each proxy component measures and why it is not the production scorer).
 
-Universe: ~40 liquid US names spanning market caps and sectors (the picker ranks by
+Universe: ~60 liquid US names spanning market caps and sectors (the picker ranks by
 potential across the WHOLE universe -- no exclusion by size or index membership) against
-a world-equity benchmark. Quarterly rebalances over the last 8 years, 6-month forward
+a world-equity benchmark. Quarterly rebalances over the last 15 years, 6-month forward
 horizon -- more names widen the top-quantile basket (less idiosyncratic single-name
 noise per period) and more periods give the t-stat more power, per the disclosed limits
-of a 20-name/5-year run. Every number is a REPLAY, never a forecast; every structural limitation
+of the earlier 20-name/5-year and 40-name/8-year runs. The benchmark is ACWI (US-listed,
+priced since 2008) rather than the user's own VWCE.MI holding, which only has ~6 years of
+Yahoo history -- too short to anchor a 15-year run; VWCE.MI remains the fallback for a
+shorter run. Every number is a REPLAY, never a forecast; every structural limitation
 (survivorship, Yahoo backfill risk, no transaction costs, event-dated-not-consensus
 revisions, small-sample warnings) is disclosed verbatim in the report.
 
@@ -38,13 +41,13 @@ from portfolio_copilot.providers.yfinance_surprises import fetch_surprise_histor
 
 OUT = ROOT / "docs" / "PICKER_BACKTEST.md"
 
-# ~40 liquid US names deliberately spanning market caps and sectors: mega-cap tech,
-# financials, healthcare, energy, staples, industrials, and mid/small caps across
-# consumer, retail, materials, utilities and energy. The picker's binding principle is
-# "no exclusion by size" -- this universe mixes them on purpose rather than curating a
-# large-cap-only sample; a bigger, more diverse universe also widens the top-quantile
-# basket (n_top = round(n_scored * 0.2)), reducing single-name noise in each period's
-# read.
+# ~60 liquid US names deliberately spanning market caps and sectors: mega-cap tech,
+# financials, healthcare, energy, staples, industrials, REITs, telecom/media, and
+# mid/small caps across consumer, retail, materials and utilities. The picker's binding
+# principle is "no exclusion by size" -- this universe mixes them on purpose rather than
+# curating a large-cap-only sample; a bigger, more diverse universe also widens the
+# top-quantile basket (n_top = round(n_scored * 0.2)), reducing single-name noise in
+# each period's read.
 DEFAULT_UNIVERSE = [
     "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN",  # mega-cap tech
     "META", "JPM", "JNJ", "XOM", "PG",  # mega-cap, mixed sectors
@@ -54,14 +57,19 @@ DEFAULT_UNIVERSE = [
     "LULU", "ETSY", "CROX", "PLNT", "DECK",  # mid/small-cap, consumer discretionary
     "FIVE", "WSM", "POOL", "CHWY", "RH",  # small/mid-cap, retail & specialty
     "DVN", "FANG", "ALB", "NEE", "AWK",  # small/mid-cap, energy/materials/utilities
+    "ORCL", "CRM", "ADBE", "QCOM",  # more mega/large-cap tech
+    "MRK", "PFE", "LLY", "ISRG",  # more healthcare
+    "BAC", "WFC", "AXP", "BLK",  # more financials
+    "O", "PLD", "SPG", "AMT",  # REITs (real estate diversification)
+    "CMCSA", "DIS", "TMUS", "VZ",  # communication services / telecom
 ]
-BENCHMARK_PRIMARY = "VWCE.MI"
-BENCHMARK_FALLBACK = "ACWI"
+BENCHMARK_PRIMARY = "ACWI"
+BENCHMARK_FALLBACK = "VWCE.MI"
 MIN_PRICE_ROWS = 252  # ~1 trading year; below this, momentum/forward-return can't work
 
-PRICE_PERIOD = "12y"
+PRICE_PERIOD = "max"
 HORIZON_MONTHS = 6
-REBALANCE_YEARS = 8
+REBALANCE_YEARS = 15
 EPS_TAGS = ["EarningsPerShareDiluted", "EarningsPerShareBasic"]
 
 
