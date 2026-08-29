@@ -62,6 +62,9 @@ universe sampler (see step 1) supplies the candidate set; no question needed fir
    finalist's `analyze_stock` output (deterministic: score ≥ 70, confidence ≥ 0.6,
    no unresolved CONFLICT); only a `passed` candidate may fill the slot — then the
    red team as usual.
+7c. Satellite sizing: `kelly_size(p_win=<from hit-rate or 0.5 if no track record>,
+   payoff_ratio=<thesis upside/downside>, sleeve_value_eur=<satellite value>,
+   cap_pct=<0.12 penny / 0.25 standard>)` — the cap always wins over Kelly.
 8. `log_decision(symbol, action, reason, score, confidence, red_team=<verdict>,
    alternative=<the portfolio's core bucket ETF>, category=<sector or lane>, candidates=
    <top 5 of step 4's `candidates_for_ledger`, when an export was given>)` for every

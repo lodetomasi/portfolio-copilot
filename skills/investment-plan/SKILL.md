@@ -59,6 +59,10 @@ Include every `warnings` item as one extra line.
 4. `portfolio_risk(path)`, `map_holdings_to_targets(path)`; anything unmapped is "outside the plan".
 5. `allocate_cash(current_values, plan.targets, cash_eur=<ask: "cash available now?">,
    rebalance_band_abs=plan.rules.rebalance_band_abs)`.
+5b. `simulate_plan_risk(tickers_by_bucket=<plan instruments yf_ticker>, weights=
+   plan.targets, monthly_eur=plan.contribution.monthly_eur, horizon_months=60)` →
+   one line in the answer: "5y risk: P(final < contributed) <x%>, worst-5% drawdown
+   <y%> (bootstrap replay, not a forecast)".
 6. If `previous` exists: `compare_snapshots(previous)` (newer defaults to the snapshot just
    saved) → `total_change_eur`. This is contributions + market move combined — the diff
    cannot split them; contributions are known instead from the plan itself.
