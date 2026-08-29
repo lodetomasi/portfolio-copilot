@@ -134,6 +134,63 @@ non-CIK → `ok: False` (SEC) ma le parti FINRA possono comunque rispondere.
   ok True con campi None; ticker senza CIK → parti SEC missing.
 - `tools/list` include `penny_flags` (aggiunta a NEW_TOOL_NAMES).
 
+## File coinvolti
+
+Questo è il design di punta del branch `feature/evidence-caps-risk-math`, che integra
+quattro design approvati nella stessa directory (questo, `2026-08-29-evidence-caps-
+enforcement-design.md`, `2026-08-29-risk-math-engine-design.md`,
+`2026-08-29-etoro-execution-adapter-fixes-design.md`). File del branch per design di
+provenienza:
+
+Questo design (penny data):
+- `src/portfolio_copilot/providers/finra.py`
+- `src/portfolio_copilot/providers/sec_penny.py`
+- `tests/test_finra.py`
+- `tests/test_sec_penny.py`
+- `tests/test_server_penny_flags.py`
+- `src/portfolio_copilot/server.py`
+- `tests/test_server_tools.py`
+- `CLAUDE.md`
+
+Design evidence-caps-enforcement (approvato, stesso branch):
+- `src/portfolio_copilot/portfolio/execution.py`
+- `src/portfolio_copilot/portfolio/picker.py`
+- `tests/test_execution.py`
+- `tests/test_picker.py`
+- `skills/stock-picker/SKILL.md`
+
+Design risk-math-engine (approvato, stesso branch):
+- `src/portfolio_copilot/analytics/risk_math.py`
+- `tests/test_risk_math.py`
+- `tests/fixtures/risk_math_closes.csv`
+- `tests/test_server_risk_tools.py`
+- `skills/investment-plan/SKILL.md`
+
+Design etoro-execution-adapter (approvato, stesso branch; Eccezione eToro in CLAUDE.md):
+- `src/portfolio_copilot/brokers/__init__.py`
+- `src/portfolio_copilot/brokers/etoro.py`
+- `src/portfolio_copilot/portfolio/venues.py`
+- `src/portfolio_copilot/portfolio/sources.py`
+- `src/portfolio_copilot/portfolio/risk_profile.py`
+- `src/portfolio_copilot/portfolio/ledger.py`
+- `tests/test_etoro_client.py`
+- `tests/test_venues.py`
+- `tests/test_sources.py`
+- `tests/test_risk_profile.py`
+- `tests/test_ledger.py`
+- `tests/test_server_etoro.py`
+- `tests/test_plugin.py`
+- `tests/fixtures/drawdown_history_sample.json`
+- `skills/deploy-cash/SKILL.md`
+- `skills/position-review/SKILL.md`
+- `skills/rebalance/SKILL.md`
+- `skills/start/SKILL.md`
+- `.claude-plugin/plugin.json`
+- `.claude-plugin/marketplace.json`
+- `README.md`
+- `docs/ARCHITECTURE.md`
+- `config/model_portfolios.yaml`
+
 ## Criteri di accettazione
 1. `penny_flags("X")` su fixture completa ritorna i red_flags deterministici attesi
    e ogni numero citato nel flag (test).
