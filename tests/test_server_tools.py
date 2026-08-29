@@ -41,6 +41,7 @@ NEW_TOOL_NAMES = {
     "resolve_isins",
     "simulate_plan_risk",
     "kelly_size",
+    "penny_flags",
 }
 
 PRE_EXISTING_TOOL_NAMES = {

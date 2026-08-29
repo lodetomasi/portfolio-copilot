@@ -57,10 +57,12 @@ from portfolio_copilot.providers.ecb_fx import ECBFXProvider, convert_to_eur
 from portfolio_copilot.providers.ecb_rates import ECBRatesProvider
 from portfolio_copilot.providers.eurostat import EurostatProvider
 from portfolio_copilot.providers.fallback import FallbackMarketData
+from portfolio_copilot.providers.finra import FINRAProvider
 from portfolio_copilot.providers.finviz import PRESETS, FinvizProvider
 from portfolio_copilot.providers.investor_relations import ALL_IR_KINDS, IRProvider
 from portfolio_copilot.providers.openfigi import EXCHANGE_TO_YF_SUFFIX, OpenFIGIProvider
 from portfolio_copilot.providers.sec_edgar import SECEdgarProvider
+from portfolio_copilot.providers.sec_penny import SECPennyProvider
 from portfolio_copilot.providers.stooq import StooqProvider
 from portfolio_copilot.providers.yahooquery_provider import YahooQueryProvider
 from portfolio_copilot.providers.yfinance_provider import YFinanceProvider
@@ -75,6 +77,8 @@ _yahooquery_provider = YahooQueryProvider()
 provider = FallbackMarketData([_yfinance_provider, _yahooquery_provider])
 fx_provider = ECBFXProvider()
 sec_provider = SECEdgarProvider()
+finra_provider = FINRAProvider()
+sec_penny_provider = SECPennyProvider(edgar=sec_provider)
 stooq_provider = StooqProvider()
 finviz_provider = FinvizProvider()
 eurostat_provider = EurostatProvider()
@@ -2207,6 +2211,77 @@ def kelly_size(
         "applied_fraction": applied,
         "amount_eur": round(applied * sleeve_value_eur, 2),
         "note": "half-Kelly default (MacLean-Thorp-Ziemba 2010); the venue cap always wins",
+    }
+
+
+@mcp.tool()
+def penny_flags(ticker: str) -> dict:
+    """Penny/micro-cap risk flags from keyless tier-A regulator data (FINRA + SEC):
+    short interest and days-to-cover (incl. OTC), daily short-volume ratio, Reg SHO
+    threshold list, reverse splits, incoming dilution (S-1/S-3/424B filings), realized
+    dilution (shares-outstanding 12m change) and trading suspensions. Deterministic
+    red_flags, each citing the number that triggers it. Informational for dossiers,
+    theses' falsifiers and the red team -- NEVER part of the score. A source that is
+    down or a non-SEC filer degrades to None + an entry in `missing`, never invented."""
+    ticker = ticker.strip().upper()
+    missing: list[str] = []
+    sources: list[str] = []
+
+    def _take(result: dict, label: str) -> dict | None:
+        if result.get("ok"):
+            sources.append(str(result.get("source")))
+            return result
+        missing.append(label)
+        return None
+
+    short_interest = _take(finra_provider.short_interest(ticker), "short_interest")
+    daily = _take(finra_provider.daily_short_volume(ticker), "daily_short_volume")
+    actions = _take(finra_provider.corporate_actions(ticker), "corporate_actions")
+    threshold = _take(finra_provider.on_threshold_list(ticker), "threshold_list")
+    dilution = _take(sec_penny_provider.dilution_filings(ticker), "dilution_filings")
+    shares = _take(sec_penny_provider.shares_outstanding(ticker), "shares_outstanding")
+    suspension = _take(sec_penny_provider.trading_suspension(ticker), "trading_suspension")
+
+    days_to_cover = short_interest.get("days_to_cover") if short_interest else None
+    daily_ratio = daily.get("short_ratio") if daily else None
+    dilution_count = dilution.get("count") if dilution else None
+    shares_change = shares.get("change_12m_pct") if shares else None
+    on_list = threshold.get("on_list") if threshold else None
+
+    red_flags: list[str] = []
+    if suspension and suspension.get("hit"):
+        # un match sul solo ticker corto (< 4 lettere) è troppo rumoroso per un flag
+        if suspension.get("match_type") == "name" or len(ticker) >= 4:
+            red_flags.append(
+                f"SEC trading suspension match ({suspension.get('match_type')}): "
+                f"{'; '.join(suspension.get('items', [])[:2])}"
+            )
+    if actions and actions.get("reverse_split"):
+        red_flags.append("reverse split in FINRA OTC daily list")
+    if dilution_count is not None and dilution_count >= 2:
+        red_flags.append(f"{dilution_count} dilution filings (S-1/S-3/424B) in 12m")
+    if shares_change is not None and shares_change > 15:
+        red_flags.append(f"shares outstanding +{shares_change:.1f}% in 12m (realized dilution)")
+    if on_list:
+        red_flags.append("on Reg SHO threshold list (persistent fails-to-deliver)")
+    if days_to_cover is not None and days_to_cover > 5:
+        red_flags.append(f"days-to-cover {days_to_cover} (> 5: crowded short)")
+
+    return {
+        "ok": True,
+        "ticker": ticker,
+        "short_interest": short_interest,
+        "days_to_cover": days_to_cover,
+        "daily_short_ratio": daily_ratio,
+        "on_threshold_list": on_list,
+        "corporate_actions": actions.get("records") if actions else None,
+        "dilution_filings_12m": dilution_count,
+        "shares_outstanding_change_12m_pct": shares_change,
+        "trading_suspension": suspension,
+        "red_flags": red_flags,
+        "missing": missing,
+        "sources": sorted(set(sources)),
+        "as_of": datetime.now(UTC).isoformat(),
     }
 
 
