@@ -43,6 +43,10 @@ universe sampler (see step 1) supplies the candidate set; no question needed fir
    `max_high_risk_stock_weight`. Also `capital_auction(path, cash_eur=0,
    candidate_tickers=<the top 5>)` → its `candidates_for_ledger` (ranking + prices), kept
    only for `log_decision` below, never to size an order (that stays `deploy-cash`'s job).
+   When handing a BUY to the execution pipeline (`portfolio.execution.build_plan`), mark
+   `is_high_risk = (lane == "speculative") or ("Asymmetric" in category) or
+   ("High Risk" in category) or (size_bucket in {"nano", "micro"})` — the tighter
+   high-risk cap and the satellite's glide gate key off that flag.
 5. For the **top idea only**: `filing_sections(ticker, form="10-K", items=["1A","7"])`
    (Risk Factors + MD&A) and `insider_activity(ticker, days=90)` → what management claims
    vs. what the numbers/insider filings actually show, **2 lines max**.
@@ -54,6 +58,10 @@ universe sampler (see step 1) supplies the candidate set; no question needed fir
    portfolio-risk numbers. Already sitting inside the core ETF is a sizing consideration
    for the red team, never on its own a reason to reject. `rejected` → downgrade to
    `WATCH`/`NO_BUY` and give the red team's reason instead. Never called for `WATCH`/`NO_BUY`.
+7b. Core `quality_stocks` slot only: run `portfolio.picker.quality_gate` on each
+   finalist's `analyze_stock` output (deterministic: score ≥ 70, confidence ≥ 0.6,
+   no unresolved CONFLICT); only a `passed` candidate may fill the slot — then the
+   red team as usual.
 8. `log_decision(symbol, action, reason, score, confidence, red_team=<verdict>,
    alternative=<the portfolio's core bucket ETF>, category=<sector or lane>, candidates=
    <top 5 of step 4's `candidates_for_ledger`, when an export was given>)` for every
