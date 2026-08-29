@@ -64,8 +64,11 @@ un agente **red team** che cerca il motivo per non comprare.
 
 ## Cosa NON fa (per scelta)
 
-- **Non si collega a nessuna banca o broker.** Niente login, credenziali, OTP, ordini. Un hook
-  blocca qualsiasi chiamata verso superfici di autenticazione.
+- **Non si collega alla banca o al broker del tuo export.** Niente login, credenziali, OTP,
+  ordini su quel conto: solo to-do manuali. Un hook blocca qualsiasi chiamata verso superfici
+  di autenticazione. Unica eccezione, su tua scelta esplicita: il tuo conto eToro personale via
+  eToro Public API v2 (chiavi solo in `data/private/etoro.env`), dove un ordine parte solo dopo
+  la tua conferma del piano esatto — demo di default, conto reale dietro doppio gate.
 - **Non usa servizi con registrazione o API key.** Solo fonti pubbliche: Yahoo Finance
   (`yfinance` + `yahooquery` di riserva), SEC EDGAR (XBRL 10-K, filing, Form 4), BCE (cambi e
   tasso sui depositi), Eurostat (inflazione, disoccupazione), Finviz (crawler open source, solo

@@ -13,7 +13,7 @@ argument-hint: "(no arguments)"
 
 ## Guardrails (always)
 
-- **No broker access.** Your holdings come only from the local XLSX/CSV export you give me. I never log into a bank or broker, never ask for credentials/OTP/PIN, never send orders. Market data comes from free public sources (Yahoo, SEC EDGAR, ECB, Finviz) with `source` / `as_of` / `confidence`.
+- **No broker access on your export account.** Its holdings come only from the local XLSX/CSV export you give me: I never log into it, never ask for credentials/OTP/PIN, never send orders there — manual only. On your own eToro account (only if configured via `data/private/etoro.env`), I read real positions and can send an order ONLY after you confirm the exact plan token I show you; demo by default, real needs your explicit double confirmation. Market data comes from free public sources (Yahoo, SEC EDGAR, ECB, Finviz) with `source` / `as_of` / `confidence`.
 - Every number comes from an MCP tool, never from memory or mental math. Missing data is said, not invented.
 - Output is a **manual to-do list** for the user (`execution = MANUAL_ONLY`). `HOLD` / `NO_BUY` / "do nothing" are complete answers.
 - Rookie in, expert processing, rookie out: ask at most two plain questions, then answer in **≤ 6 lines**. Details only if the user says **"why"**.
@@ -28,6 +28,8 @@ argument-hint: "(no arguments)"
 5. One stock: buy / keep / sell?"
 
 If the user already answered in their message, skip the question.
+
+State the account first: a file path in the message means the export account; otherwise, if eToro credentials are configured, start with `etoro_account`'s banner (`Account: eToro DEMO (virtual)` / `Account: eToro REAL`) and use that account.
 
 ## Route
 

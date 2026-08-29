@@ -52,8 +52,10 @@ def test_plugin_and_marketplace_manifests_agree():
     entry = next(p for p in market["plugins"] if p["name"] == plugin["name"])
     assert entry["version"] == plugin["version"]
     assert entry["source"] == "./"
-    # The boundary must be stated in the manifest itself.
-    assert "no order execution" in plugin["description"].lower()
+    # The boundary must be stated in the manifest itself, scoped to the export account:
+    # on the user's own eToro account (explicit user exception, see CLAUDE.md) orders
+    # can be sent after per-plan confirmation, so a blanket claim would be false.
+    assert "no order execution on your export account" in plugin["description"].lower()
 
 
 def test_every_expected_skill_exists_with_description():
@@ -74,6 +76,10 @@ def test_every_skill_states_no_broker_access_and_stays_short():
         assert "manual" in body, path
         assert "≤ 6 lines" in text, path  # rookie-out: short answers by contract
         assert len(text.splitlines()) < 120, path
+        # The four money-relevant skills must state the eToro exception (scoped
+        # execution after per-plan confirmation); the others never send anything.
+        if path.parent.name in {"start", "deploy-cash", "rebalance", "position-review"}:
+            assert "etoro" in body, path
 
 
 def test_hooks_json_wires_guard_and_banner():

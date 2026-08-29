@@ -16,13 +16,14 @@ it the weight check is skipped and said so).
 
 ## Guardrails (always)
 
-- **No broker access.** Your holdings come only from the local XLSX/CSV export you give me. I never log into a bank or broker, never ask for credentials/OTP/PIN, never send orders. Market data comes from free public sources (Yahoo, SEC EDGAR, ECB, Finviz) with `source` / `as_of` / `confidence`.
+- **No broker access on your export account.** Its holdings come only from the local XLSX/CSV export you give me: I never log into it, never ask for credentials/OTP/PIN, never send orders there — manual only. On your own eToro account (only if configured via `data/private/etoro.env`), I read real positions and can send an order ONLY after you confirm the exact plan token I show you; demo by default, real needs your explicit double confirmation. Market data comes from free public sources (Yahoo, SEC EDGAR, ECB, Finviz) with `source` / `as_of` / `confidence`.
 - Every number comes from an MCP tool, never from memory or mental math. Missing data is said, not invented.
 - Output is a **manual to-do list** for the user (`execution = MANUAL_ONLY`). `HOLD` / `NO_BUY` / "do nothing" are complete answers.
 - Rookie in, expert processing, rookie out: ask at most two plain questions, then answer in **≤ 6 lines**. Details only if the user says **"why"**.
 
 ## Do
 
+0. Account: a file path given → export account (manual orders only, nothing else changes). No path and eToro configured → eToro: start every answer with `etoro_account`'s banner. Both available and the request names neither → ask "Which account? (eToro | export file)" — never guess.
 1. `parse_portfolio_export(path)` → find the holding by symbol/ISIN/name.
 2. `portfolio_risk(path)` → its weight, portfolio concentration, leverage.
 3. `analyze_stock(ticker)` → score, confidence, components, `vol_1y`, `max_drawdown_1y`,
@@ -47,6 +48,8 @@ it the weight check is skipped and said so).
    bucket>, alternative_price=<that bucket's price from candidates_for_ledger>,
    candidates=<top 5 of its `candidates_for_ledger`>)`. The sold ticker itself is added to
    the comparison automatically -- do not add it again.
+
+9. Last (eToro account only): `prepare_execution(orders, mode)` → show each line (symbol, EUR, USD), the `token` and every blocker, then ask: "Confirm sending these N orders to eToro DEMO? Reply with the token." Call `execute_plan(plan, token)` only when the user replies with that exact token, then report sent/failed with broker order ids. Real mode also needs `allow_real=True` + `ETORO_ALLOW_REAL=1` (never set them yourself). Export account: no execution step, manual to-do only.
 
 ## Answer (≤ 6 lines)
 
