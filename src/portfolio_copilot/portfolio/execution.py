@@ -103,6 +103,7 @@ def build_plan(
     red_team_by_symbol: dict[str, str] | None = None,
     as_of: str = "",
     risk_profile: dict | None = None,
+    glide: dict | None = None,
 ) -> ExecutionPlan:
     """Build an :class:`ExecutionPlan` from already-decided orders. Never derives a SELL:
     a line is a sell only if ``suggested_orders`` already says ``side: "sell"``.
@@ -137,11 +138,24 @@ def build_plan(
         equity is capped; only positions EXPLICITLY marked ``is_stock: True`` count as
         speculative (the caller marks them -- an unmarked ETF/bond/cash position must
         never trigger a spurious blocker).
+    ``glide``: optional ``{"no_new_high_risk_after": "YYYY-MM-DD"}`` gate. From that
+        date on (plan date taken from ``as_of``, falling back to today when ``as_of``
+        is empty) every ``is_high_risk`` buy is blocked -- the satellite's 5-year
+        horizon spends its final stretch harvesting, not adding tail risk.
+        A ``glide`` dict without the key, or an unparsable date, raises ``ValueError``.
     """
     if mode not in _MODE_TO_ACCOUNT_LABEL:
         raise ValueError(f"mode must be 'demo' or 'real', got {mode!r}")
     if fx_rate_eur_per_ccy is None or fx_rate_eur_per_ccy <= 0:
         raise ValueError(f"fx_rate_eur_per_ccy must be > 0, got {fx_rate_eur_per_ccy!r}")
+
+    glide_after: date | None = None
+    if glide is not None:
+        raw_glide = glide.get("no_new_high_risk_after")
+        if raw_glide is None:
+            raise ValueError("glide requires 'no_new_high_risk_after' (ISO date)")
+        glide_after = date.fromisoformat(str(raw_glide)[:10])
+        plan_date = date.fromisoformat(as_of[:10]) if as_of else date.today()
 
     red_team_by_symbol = red_team_by_symbol or {}
     checks: list[str] = []
@@ -156,6 +170,17 @@ def build_plan(
         side = order.get("side", "buy")
         if side not in ("buy", "sell"):
             raise ValueError(f"{symbol}: side must be 'buy' or 'sell', got {side!r}")
+
+        if (
+            glide_after is not None
+            and side == "buy"
+            and order.get("is_high_risk") is True
+            and plan_date >= glide_after
+        ):
+            blockers.append(
+                f"{symbol}: glide gate: new high-risk buys are blocked since "
+                f"{glide_after.isoformat()}"
+            )
 
         if symbol in seen_symbols:
             blockers.append(f"{symbol}: duplicate symbol in plan")

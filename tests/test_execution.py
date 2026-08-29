@@ -135,6 +135,47 @@ def test_build_plan_normal_buy_ignores_high_risk_cap():
     assert plan.blockers == []
 
 
+def test_build_plan_glide_blocks_high_risk_buy_on_and_after_date():
+    plan = _plan(
+        suggested_orders=[_order(is_high_risk=True, amount_eur=15.0)],
+        glide={"no_new_high_risk_after": "2030-09-01"},
+        as_of="2030-09-01T00:00:00Z",
+    )
+    assert any("glide gate" in b for b in plan.blockers)
+
+
+def test_build_plan_glide_allows_high_risk_buy_before_date():
+    plan = _plan(
+        suggested_orders=[_order(is_high_risk=True, amount_eur=15.0)],
+        glide={"no_new_high_risk_after": "2030-09-01"},
+        as_of="2030-08-31T23:59:59Z",
+    )
+    assert not any("glide gate" in b for b in plan.blockers)
+
+
+def test_build_plan_glide_never_blocks_non_high_risk_buys():
+    plan = _plan(
+        glide={"no_new_high_risk_after": "2020-01-01"},
+        as_of="2030-09-01T00:00:00Z",
+    )
+    assert plan.blockers == []
+
+
+def test_build_plan_glide_default_none_keeps_behaviour():
+    plan = _plan(suggested_orders=[_order(is_high_risk=True, amount_eur=15.0)])
+    assert not any("glide" in b for b in plan.blockers)
+
+
+def test_build_plan_glide_missing_key_raises():
+    with pytest.raises(ValueError, match="no_new_high_risk_after"):
+        _plan(glide={})
+
+
+def test_build_plan_glide_malformed_date_raises():
+    with pytest.raises(ValueError):
+        _plan(glide={"no_new_high_risk_after": "settembre 2030"})
+
+
 def test_build_plan_blocks_on_missing_red_team():
     plan = _plan(suggested_orders=[_order(red_team=None)])
     assert any("red_team" in b for b in plan.blockers)
