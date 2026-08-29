@@ -271,3 +271,50 @@ def shortlist(
             "note": SHORTLIST_NOTE,
         },
     }
+
+
+def quality_gate(
+    analysis: dict,
+    min_score: float = 70.0,
+    min_confidence: float = 0.6,
+) -> dict:
+    """Deterministic pass/fail for the core account's ``quality_stocks`` slot.
+
+    ``analysis`` is the dict returned by the ``analyze_stock`` MCP tool: the
+    ``StockScore`` fields flat at the root (``score`` 0-100, ``confidence`` 0-1,
+    see ``server.py``) plus ``evidence`` shaped
+    ``{"metrics": {name: {"status", "use_in_score", ...}}, "counts": {...}}``
+    (``analytics/evidence.py::evidence_report``). ``counts`` is an aggregate tally,
+    never iterated as a metric.
+
+    Criteria (every failed one is reported, not just the first): score >= min_score;
+    confidence >= min_confidence; no metric with an unresolved source conflict
+    (``status == "CONFLICT"`` and ``use_in_score`` False); a missing/empty evidence
+    report fails explicitly ("evidence report missing") -- a clean report is never
+    invented (CLAUDE.md rule 4).
+
+    Never applied to the ranking (no-exclusion principle): only the caller filling
+    the core ``quality_stocks`` slot uses it, after ``analyze_stock`` on each
+    finalist and before the red team.
+    """
+    reasons: list[str] = []
+
+    score = analysis.get("score")
+    if score is None or score < min_score:
+        reasons.append(f"score {score!r} below minimum {min_score}")
+
+    confidence = analysis.get("confidence")
+    if confidence is None or confidence < min_confidence:
+        reasons.append(f"confidence {confidence!r} below minimum {min_confidence}")
+
+    evidence = analysis.get("evidence")
+    metrics = evidence.get("metrics") if isinstance(evidence, dict) else None
+    if not metrics:
+        reasons.append("evidence report missing")
+    else:
+        for name in sorted(metrics):
+            metric = metrics[name]
+            if metric.get("status") == "CONFLICT" and metric.get("use_in_score") is False:
+                reasons.append(f"unresolved source conflict on {name}")
+
+    return {"passed": not reasons, "reasons": reasons}

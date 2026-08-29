@@ -19,6 +19,7 @@ from portfolio_copilot.portfolio.picker import (
     SHORTLIST_NOTE,
     _size_bucket,
     annotate,
+    quality_gate,
     rank_by_potential,
     shortlist,
 )
@@ -520,3 +521,86 @@ def test_shortlist_is_deterministic():
     first = shortlist(scored, exposure, CAPS, top_n=10)
     second = shortlist(scored, exposure, CAPS, top_n=10)
     assert first == second
+
+
+# ---------------------------------------------------------------------------
+# quality_gate (core quality_stocks slot)
+# ---------------------------------------------------------------------------
+
+
+def _analysis(**overrides) -> dict:
+    """Fixture con la forma REALE dell'output di analyze_stock (server.py:343-346):
+    campi StockScore piatti alla radice + evidence = {"metrics", "counts"}."""
+    base = {
+        "ticker": "MSFT",
+        "score": 82.0,
+        "confidence": 0.8,
+        "category": "Quality compounder",
+        "evidence": {
+            "metrics": {
+                "revenue_growth_yoy": {"status": "VERIFIED", "use_in_score": True},
+                "free_cash_flow": {"status": "SINGLE_SOURCE", "use_in_score": True},
+            },
+            "counts": {"MISSING": 0, "SINGLE_SOURCE": 1, "VERIFIED": 1, "CONFLICT": 0},
+        },
+    }
+    base.update(overrides)
+    return base
+
+
+def test_quality_gate_passes_clean_analysis():
+    result = quality_gate(_analysis())
+    assert result == {"passed": True, "reasons": []}
+
+
+def test_quality_gate_fails_below_min_score():
+    result = quality_gate(_analysis(score=69.9))
+    assert result["passed"] is False
+    assert any("score" in r for r in result["reasons"])
+
+
+def test_quality_gate_fails_below_min_confidence():
+    result = quality_gate(_analysis(confidence=0.59))
+    assert result["passed"] is False
+    assert any("confidence" in r for r in result["reasons"])
+
+
+def test_quality_gate_fails_on_unresolved_conflict():
+    analysis = _analysis()
+    analysis["evidence"]["metrics"]["free_cash_flow"] = {
+        "status": "CONFLICT",
+        "use_in_score": False,
+    }
+    result = quality_gate(analysis)
+    assert result["passed"] is False
+    assert any("free_cash_flow" in r for r in result["reasons"])
+
+
+def test_quality_gate_passes_conflict_resolved_by_tier_a():
+    analysis = _analysis()
+    analysis["evidence"]["metrics"]["free_cash_flow"] = {
+        "status": "CONFLICT",
+        "use_in_score": True,
+    }
+    assert quality_gate(analysis)["passed"] is True
+
+
+def test_quality_gate_fails_on_missing_evidence():
+    result = quality_gate(_analysis(evidence=None))
+    assert result["passed"] is False
+    assert "evidence report missing" in result["reasons"]
+
+
+def test_quality_gate_accumulates_every_failed_criterion():
+    result = quality_gate(_analysis(score=10.0, confidence=0.1, evidence=None))
+    assert result["passed"] is False
+    assert len(result["reasons"]) == 3
+
+
+def test_quality_gate_ignores_counts_key():
+    # counts non è una metrica: non deve né crashare né generare reason spurie
+    assert quality_gate(_analysis())["reasons"] == []
+
+
+def test_quality_gate_custom_thresholds():
+    assert quality_gate(_analysis(score=65.0), min_score=60.0)["passed"] is True
