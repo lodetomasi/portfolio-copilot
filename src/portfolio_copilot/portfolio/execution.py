@@ -1,19 +1,21 @@
 """eToro execution flow: turn suggested orders into a confirmed, one-by-one execution.
 
 Pure orchestration against an *injected* client (never imported here, never constructed
-here) so this module stays offline-testable with a fake. The client is expected to expose:
+here) so this module stays offline-testable with a fake. The client interface is the REAL
+``brokers.etoro.EToroClient`` one (design finding #17 -- the fake in the tests mirrors it):
 
-    get_cash_available() -> float
-        Current available cash in the account's own currency (USD for eToro).
-    open_market_order(*, symbol, instrument_id, amount, settlement_type, leverage) -> dict
-        Places a market BUY. Returns at least an order/reference id (e.g. ``orderId``).
-    close_position(*, position_id, instrument_id, units=None) -> dict
-        Closes (fully or partially) an open position. Returns at least an order id.
-    wait_for_fill(*, order, side, symbol=None, instrument_id=None, position_id=None) -> dict
-        Polls until the order/close reaches a terminal state and returns at least
-        ``{"status": "Filled" | "Rejected" | ...}``, plus ``price``/``avg_price`` when known.
-        Bounded polling (e.g. 10 x 1s) and the demo/real, open/close branching described in
-        the eToro API notes are the client's responsibility, not this module's.
+    account() -> dict
+        At least ``{"cash_available": float | None}`` in the account's own currency.
+    open_market_order(instrument_id, amount=..., side="buy", leverage=1,
+                      settlement_type="real") -> dict
+        Places a market BUY. Returns at least ``order_id`` (or ``reference_id``).
+    close_position(position_id, instrument_id, units=None) -> dict
+        Closes (fully or partially) an open position. Returns at least ``order_id``.
+    wait_for_fill(order_id, kind="open"|"close", position_id=None) -> dict
+        Polls until the order reaches a terminal state and returns at least
+        ``{"status": "filled" | "rejected" | ...}`` (lowercase), plus ``price``/
+        ``avg_price`` when known. Bounded polling and the demo/real, open/close
+        branching from the eToro API notes are the client's responsibility.
 
 Two steps, matching CLAUDE.md's "never invent an order, never send silently" rule:
 
@@ -34,7 +36,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -489,7 +491,9 @@ def execute(
     def _ledger_id(symbol: str, action: Decision) -> str:
         # Unique per plan: two different plans on the same day/symbol/action must not
         # collide on the ledger's duplicate-id guard after an order already left.
-        return f"{date.today().isoformat()}:{symbol}:{action.value}:{plan.token[:8]}"
+        # UTC come record_decision (stessa classe di bug del fix 00:00-02:00 CEST):
+        # l'id non deve riportare una data diversa da quella registrata nel record.
+        return f"{datetime.now(UTC).date().isoformat()}:{symbol}:{action.value}:{plan.token[:8]}"
 
     sent: list[str] = []
     ledger_ids: list[str] = []

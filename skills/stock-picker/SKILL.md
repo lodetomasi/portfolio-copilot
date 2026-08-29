@@ -36,7 +36,10 @@ universe sampler (see step 1) supplies the candidate set; no question needed fir
    `summary.sector_concentration` as context, not a cut.
 3. Top 5 from the ranking → `analyze_stock(ticker)` (Yahoo tier B + SEC tier A overrides;
    read `provenance.overrides`, `as_of`, `missing_fields`, `estimates`, and `evidence` for
-   any metric flagged `CONFLICT`).
+   any metric flagged `CONFLICT`). For micro/nano/small finalists also `penny_flags(ticker)`
+   (FINRA short interest/daily short ratio/threshold list + SEC dilution filings,
+   shares-outstanding change, suspensions): its `red_flags` go verbatim into the red-team
+   prompt and its numbers become thesis falsifiers — informational, never part of the score.
 4. With an export: `portfolio_risk(path)` → existing weight, sector, speculative bucket,
    leverage, minimum economic order. Caps from `get_portfolio_config().risk_limits`:
    quality `max_single_stock_weight`, growth `max_growth_stock_weight`, high-risk

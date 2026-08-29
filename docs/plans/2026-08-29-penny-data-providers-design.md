@@ -134,6 +134,18 @@ non-CIK → `ok: False` (SEC) ma le parti FINRA possono comunque rispondere.
   ok True con campi None; ticker senza CIK → parti SEC missing.
 - `tools/list` include `penny_flags` (aggiunta a NEW_TOOL_NAMES).
 
+## Deferral dichiarati (spec-review post-implementazione 2026-08-30)
+
+- Il wiring delle fonti eToro nei tool di portafoglio (`sources.py::resolve_source`/
+  `portfolio_from_etoro` dentro `portfolio_risk`/`map_holdings_to_targets`/
+  `capital_auction`/`save_portfolio_snapshot`, finding #18 Phase B del design eToro) è
+  DELIBERATAMENTE fuori da questo branch: è il task-11 del piano
+  `docs/plans/etoro-execution-adapter-fixes/` (stream parallelo dell'utente), con i suoi
+  test per-tool. In questo branch `sources.py` entra completo e testato in isolamento.
+- Il criterio 5 di questo design ("prompt autopilot aggiornato con penny_flags") è
+  soddisfatto in `data/private/autopilot_prompt.md` (git-ignored, non visibile nel diff)
+  E in `skills/stock-picker/SKILL.md` step 3 (visibile nel diff).
+
 ## File coinvolti
 
 Questo è il design di punta del branch `feature/evidence-caps-risk-math`, che integra
