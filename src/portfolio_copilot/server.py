@@ -622,7 +622,8 @@ def discover_stocks(
         list[str] | None,
         Field(
             description="mode='universe' only: size buckets to sample; "
-            "default mega/large/mid/small"
+            "default mega/large/mid/small/micro/nano (no floor -- includes penny-stock "
+            "territory)"
         ),
     ] = None,
 ) -> dict:

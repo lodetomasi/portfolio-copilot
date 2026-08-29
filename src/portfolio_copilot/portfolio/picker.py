@@ -28,6 +28,7 @@ _SIZE_THRESHOLDS: tuple[tuple[float, str], ...] = (
     (10e9, "large"),
     (2e9, "mid"),
     (300e6, "small"),
+    (50e6, "micro"),
 )
 
 _CORE_OVERLAP_NOTE = "likely a large weight in a global index ETF you already hold"
@@ -39,14 +40,16 @@ SHORTLIST_NOTE = (
 
 
 def _size_bucket(market_cap: float | None) -> str | None:
-    """Bucket a market cap into mega/large/mid/small/micro; ``None`` when the market cap
-    itself is unknown or non-finite (NaN/inf) -- never guessed (CLAUDE.md #6)."""
+    """Bucket a market cap into mega/large/mid/small/micro/nano; ``None`` when the
+    market cap itself is unknown or non-finite (NaN/inf) -- never guessed (CLAUDE.md
+    #6). Below $50mln (true penny-stock territory) is "nano", never folded into
+    "micro" -- the label must not understate that risk."""
     if market_cap is None or not math.isfinite(market_cap):
         return None
     for threshold, name in _SIZE_THRESHOLDS:
         if market_cap >= threshold:
             return name
-    return "micro"
+    return "nano"
 
 
 def _risk_cap_pct(category: str | None, caps: dict) -> float | None:
@@ -93,7 +96,8 @@ def rank_by_potential(scored: list[dict], min_confidence: float = 0.0) -> list[d
 def annotate(item: dict, exposure: dict | None, caps: dict) -> dict:
     """Attach informational tags to one ranked candidate. Adds:
 
-    - ``size_bucket``: mega/large/mid/small/micro/``None`` from the snapshot's market cap.
+    - ``size_bucket``: mega/large/mid/small/micro/nano/``None`` from the snapshot's
+      market cap.
     - ``risk_cap_pct``: the per-stock risk-limit cap its category maps to (``None`` if
       the category has none, e.g. no usable data).
     - ``core_overlap_note``: an informational string for a mega-cap candidate -- likely

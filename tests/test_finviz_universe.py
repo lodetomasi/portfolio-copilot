@@ -4,6 +4,8 @@ USER PRINCIPLE under test: the sampler must not exclude by size or style -- it u
 every (style, size) screen and only records which styles hit a candidate, never drops it.
 """
 
+import inspect
+
 import pandas as pd
 import pytest
 from finvizfinance.constants import filter_dict, order_dict
@@ -31,6 +33,21 @@ def test_style_order_names_are_valid_finviz_order_names():
 
 def test_style_order_covers_every_preset():
     assert set(STYLE_ORDER) == set(PRESETS)
+
+
+def test_size_buckets_include_micro_and_nano_cap():
+    """USER PRINCIPLE: no exclusion by size -- true penny-stock territory (micro
+    $50-300mln, nano <$50mln) must be selectable, not just mega/large/mid/small."""
+    assert set(SIZE_BUCKETS) >= {"mega", "large", "mid", "small", "micro", "nano"}
+
+
+def test_discover_universe_default_sizes_include_micro_and_nano():
+    """The default sampling must not silently floor out at small-cap ($300mln):
+    that would contradict discover_universe's own 'no exclusions' docstring."""
+    default_sizes = inspect.signature(FinvizProvider.discover_universe).parameters[
+        "sizes"
+    ].default
+    assert set(default_sizes) == {"mega", "large", "mid", "small", "micro", "nano"}
 
 
 def _row(ticker, company="Co", sector="Tech", industry="Software", cap=1e9):
@@ -95,8 +112,9 @@ def test_discover_universe_runs_one_screen_per_style_size_pair_with_size_overrid
 
     growth_calls = [c for c in calls if c["order"] == STYLE_ORDER["quality_growth"]]
     assert len(growth_calls) == 4
-    # size override applied: each size bucket used exactly once for this style
-    assert {c["filters"]["Market Cap."] for c in growth_calls} == set(SIZE_BUCKETS.values())
+    # size override applied: each requested size bucket used exactly once for this style
+    requested_sizes = {SIZE_BUCKETS[s] for s in ("mega", "large", "mid", "small")}
+    assert {c["filters"]["Market Cap."] for c in growth_calls} == requested_sizes
     growth_filters = PRESETS["quality_growth"]
     for c in growth_calls:
         # other preset filters preserved untouched
