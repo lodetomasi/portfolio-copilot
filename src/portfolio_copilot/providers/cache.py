@@ -23,5 +23,9 @@ class TTLCache:
             return None
         return value
 
-    def set(self, key: str, value: Any) -> None:
-        self._store[key] = (self._clock() + self.ttl, value)
+    def set(self, key: str, value: Any, ttl: float | None = None) -> None:
+        """Store ``value`` under ``key``. ``ttl`` overrides ``self.ttl`` for this entry only
+        (e.g. a much shorter TTL for a negative/failed result so it self-heals sooner than a
+        confirmed, successful one)."""
+        effective_ttl = self.ttl if ttl is None else float(ttl)
+        self._store[key] = (self._clock() + effective_ttl, value)

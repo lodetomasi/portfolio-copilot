@@ -95,6 +95,27 @@ class StockSnapshot(BaseModel):
 
     sector: str | None = None
     industry: str | None = None
+
+    # Analyst estimates / revisions (free-data proxies -- see ARCHITECTURE.md).
+    est_eps_growth_1y: float | None = None
+    est_revenue_growth_1y: float | None = None
+    eps_revisions_up_30d: int | None = None
+    eps_revisions_down_30d: int | None = None
+    revision_balance: float | None = None
+    analyst_count: int | None = None
+    consensus_score: float | None = None
+    target_upside: float | None = None
+    revision_net_90d: int | None = None  # net analyst upgrades minus downgrades, event-dated
+    revision_pt_change_90d: float | None = None
+
+    # Catalysts / event density.
+    days_to_next_earnings: int | None = None
+    insider_form4_90d: int | None = None
+    filings_8k_90d: int | None = None
+    surprise_mean_8q: float | None = None
+    surprise_positive_share_8q: float | None = None
+    surprise_streak: int | None = None
+
     provenance: Provenance
 
 

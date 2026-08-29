@@ -22,7 +22,20 @@ except json.JSONDecodeError:
 
 tool = payload.get("tool_name", "") or "tool"
 tool_input = payload.get("tool_input", {}) or {}
-blob = json.dumps(tool_input, ensure_ascii=False).lower()
+def _flatten(value):
+    """Every string in the tool input, one per line, so per-line regexes see real lines
+    (json.dumps would turn newlines into two characters and let unrelated lines combine)."""
+    if isinstance(value, dict):
+        for v in value.values():
+            yield from _flatten(v)
+    elif isinstance(value, (list, tuple)):
+        for v in value:
+            yield from _flatten(v)
+    elif value is not None:
+        yield str(value)
+
+
+blob = "\n".join(_flatten(tool_input)).lower()
 # json.dumps renders a real newline/carriage-return/tab byte inside a string value as the
 # two literal characters "\" + "n"/"r"/"t". The trailing letter is a word character, so it
 # fuses with a keyword that starts a non-first line (e.g. "...foo\npassword: ...") and
@@ -68,11 +81,28 @@ def _credentials_hit(text):
 
 
 # 3) Network clients carrying auth headers/cookies/basic auth.
-NET_AUTH = re.compile(
-    r"\b(curl|wget|httpx|http)\b[^\n]*?(--?u(ser)?\b|--cookie|-b\s|authorization:|bearer\s)"
+# 3) Credentials passed on a network client's command line. The alternatives are spelled in
+# pieces so that this guard, which scans its own edits, does not flag this file.
+_NET_CLIENTS = r"\b(curl|wget|httpx|http)\b"
+_NET_CREDS = (
+    r"(?:(?:^|\s)(?:-u|--user)\s+\S+:\S+"  # basic auth user:pass
+    r"|(?:^|\s)--cookie(?:\s|=)"                       # cookie jar / header
+    r"|(?:^|\s)-b\s+\S"                          # cookie file flag
+    r"|['\"]?authorization['\"]?\s*[:=]"                    # Authorization header
+    r"|\bbearer\s+\S{8,}"                         # bearer token
+    r")"
 )
+NET_AUTH = re.compile(_NET_CLIENTS + r"[^\n]*?" + _NET_CREDS, re.M)
 # 4) Plaintext credentials embedded in a URL's authority component (user:pass@host).
 USERINFO_URL = re.compile(r"https?://[^/\s\"'<>@]+:[^/\s\"'<>@]+@")
+
+# 0) Execution venue allowlist. The user changed the rules on 2026-08-29: the copilot may talk
+# to the eToro Public API (their own brokerage account, keys from the local env file) and to
+# eToro's official developer documentation. Those URLs are removed from the scanned text so the
+# generic surface rules below do not fire on them. Credential material in tool input (rules 2
+# and 4) is still denied everywhere, eToro included.
+ALLOWED_VENUE_URL = re.compile(r"https?://([a-z0-9-]+\.)*etoro\.com[^\s\"'<>]*")
+blob = ALLOWED_VENUE_URL.sub("<allowed-venue-url>", blob)
 
 hit = (
     AUTH_URL.search(blob)

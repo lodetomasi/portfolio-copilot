@@ -8,7 +8,7 @@
 *English abstract — Portfolio Copilot is a Claude Code plugin + local MCP server for retail
 investors: investment plan with calendar, portfolio review, cash deployment, fee-aware
 rebalancing and stock picking from a local broker export. Zero signup data sources (Yahoo, SEC
-EDGAR, ECB, Eurostat, Finviz), deterministic Python engines, 1092 offline tests, suggested
+EDGAR, ECB, Eurostat, Finviz, OpenFIGI), deterministic Python engines, 1318 offline tests, suggested
 orders only — never trades, never logs into a broker.*
 
 ---
@@ -96,7 +96,10 @@ cash-flow-first (waterfall sul bucket più sottopeso + top-up entro banda, mai s
 minimo economico = fee / 1%), piano con cadenza versamenti, backtest mensile, thesis engine,
 replacement engine (vendi solo se c'è di meglio, fee comprese), hidden-exposure graph, capital
 auction, decision ledger + shadow portfolio, personal edge, decision quality, macro regime,
-snapshot store e opportunity-cost ledger. Mappa completa con stato per motore:
+snapshot store e opportunity-cost ledger. Lo stock picker cerca il potenziale su tutte le
+taglie, non esclude nulla, etichetta: taglia, sovrapposizione con l'ETF core e settore sono
+informazioni scritte accanto a ogni idea, mai un filtro — solo i limiti di rischio e il red
+team decidono quanto comprare. Mappa completa con stato per motore:
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 Due cose in più che il copilot si ricorda per te: ad ogni check-in salva una "foto" del
@@ -110,11 +113,12 @@ meglio a scegliere qualcos'altro, o se è ancora troppo presto per saperlo.
 
 | cosa | valore | dove |
 |---|---|---|
-| test automatici (tutti offline e deterministici) | **1092 passed**, 0 skipped, 0 xfail | [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) — KPI di ogni singolo test |
+| test automatici (tutti offline e deterministici) | **1318 passed**, 0 skipped, 0 xfail | [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) — KPI di ogni singolo test |
 | coverage di riga (`src/portfolio_copilot`) | **~94 %** | idem, per modulo |
 | lint / manifest | `ruff` pulito · `claude plugin validate --strict` ok su plugin, skill, agent | idem |
-| tool MCP esposti | **31** + 4 prompt | `docs/ARCHITECTURE.md` |
+| tool MCP esposti | **34** + 4 prompt | `docs/ARCHITECTURE.md` |
 | backtest reali (3 profili × 5/10 anni, dati Yahoo) | commissioni 0,79–0,84 % dei versamenti, cash inattivo 0 €, fuori banda 0–4 % dei mesi | [`docs/BACKTEST.md`](docs/BACKTEST.md) |
+| backtest proxy dello stock picker (sopravvivenza dichiarata, no costi di transazione) | ranking per potenziale vs benchmark, rebalance trimestrale | [`docs/PICKER_BACKTEST.md`](docs/PICKER_BACKTEST.md) |
 | performance motori | parser 1000 righe 0,04 s · 1000 scenari di allocazione 0,01 s · backtest 240 mesi 0,004 s | idem |
 
 Il backtest ha già fatto il suo mestiere: la prima versione dell'allocatore (ripartizione
@@ -126,7 +130,7 @@ investe tutti restando sotto il tetto di commissioni.
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh                 # se non hai uv
 git clone https://github.com/lodetomasi/portfolio-copilot && cd portfolio-copilot
-uv sync --extra dev && uv run pytest -q                          # 1092 passed
+uv sync --extra dev && uv run pytest -q                          # 1318 passed
 claude plugin marketplace add . && claude plugin install portfolio-copilot@portfolio-copilot
 ```
 
@@ -146,6 +150,7 @@ uv run pytest -q                                   # suite completa
 uv run ruff check .                                # lint
 uv run --with pytest-cov python scripts/test_report.py   # rigenera docs/TEST_REPORT.md
 uv run python scripts/backtest_report.py           # rigenera docs/BACKTEST.md (rete)
+uv run python scripts/picker_backtest_report.py    # rigenera docs/PICKER_BACKTEST.md (rete)
 uv run mcp dev src/portfolio_copilot/server.py     # MCP Inspector
 ```
 

@@ -43,6 +43,26 @@ PRESETS: dict[str, dict[str, str]] = {
 }
 
 
+# Exact finvizfinance "Market Cap." option strings (finvizfinance.constants.filter_dict).
+# Used to sample every size bucket -- discovery never excludes by size.
+SIZE_BUCKETS: dict[str, str] = {
+    "mega": "Mega ($200bln and more)",
+    "large": "Large ($10bln to $200bln)",
+    "mid": "Mid ($2bln to $10bln)",
+    "small": "Small ($300mln to $2bln)",
+}
+
+# Exact finvizfinance order names (finvizfinance.constants.order_dict) used to rank each
+# style's screen before truncating to per_screen. One entry per PRESETS key.
+STYLE_ORDER: dict[str, str] = {
+    "quality_growth": "EPS growth this year",
+    "quality_value": "Return on Equity",
+    "momentum": "Performance (Quarter)",
+}
+
+_UNIVERSE_COLUMNS = ("Ticker", "Company", "Sector", "Industry", "Market Cap")
+
+
 def validate_preset(filters: dict[str, str]) -> None:
     """Raise ValueError if a label/option is unknown to finvizfinance (offline check)."""
     Overview().set_filter(filters_dict=filters)
@@ -70,7 +90,9 @@ class FinvizProvider:
         try:
             screener = self._screener_factory()
             screener.set_filter(filters_dict=PRESETS[preset])
-            df = screener.screener_view(order="Market Cap.", ascend=False, limit=limit, verbose=0)
+            df = screener.screener_view(
+                order=STYLE_ORDER[preset], ascend=False, limit=limit, verbose=0
+            )
         except Exception as exc:  # tier-C HTML scraper: network error or site layout change
             df = None
             scrape_error = f"{type(exc).__name__}: {exc}"
@@ -113,5 +135,98 @@ class FinvizProvider:
                 "note": "Discovery only. Re-score candidates with analyze_stock before deciding.",
             }
         )
-        self._cache.set(key, result)
+        # A transient scrape failure is not "Finviz has nothing here" -- caching it would
+        # block discovery for the full TTL after one blip. Only successful screens are cached.
+        if result["ok"]:
+            self._cache.set(key, result)
+        return result
+
+    def discover_universe(
+        self,
+        styles: tuple[str, ...] = ("quality_growth", "quality_value", "momentum"),
+        sizes: tuple[str, ...] = ("mega", "large", "mid", "small"),
+        per_screen: int = 15,
+        screener_factory=None,
+    ) -> dict:
+        """Sample the whole market across size buckets and styles. No exclusions.
+
+        Runs one preset screen per (style, size) pair with ``Market Cap.`` overridden to
+        the size bucket, then unions candidates by ticker across all of them: a name
+        found by more than one screen keeps a single entry with every style that hit it
+        listed in ``styles_hit``. Size, style and index overlap are information here,
+        never filters -- nothing is dropped for being big, small, or already owned.
+
+        A screen that raises (network error, site change) is recorded in
+        ``screens_failed`` and skipped; the rest still run. An empty-but-valid screen
+        (no matches) is not a failure. Every candidate must still be re-scored by
+        ``analyze_stock`` -- Finviz numbers never enter the score.
+        """
+        unknown_styles = [s for s in styles if s not in PRESETS or s not in STYLE_ORDER]
+        if unknown_styles:
+            raise ValueError(f"Unknown style(s) {unknown_styles}. Available: {sorted(STYLE_ORDER)}")
+        unknown_sizes = [s for s in sizes if s not in SIZE_BUCKETS]
+        if unknown_sizes:
+            raise ValueError(f"Unknown size(s) {unknown_sizes}. Available: {sorted(SIZE_BUCKETS)}")
+        if per_screen <= 0:
+            raise ValueError("per_screen must be > 0")
+
+        key = f"universe:{':'.join(styles)}|{':'.join(sizes)}|{per_screen}"
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+
+        factory = screener_factory or self._screener_factory
+        candidates: dict[str, dict] = {}
+        screens_failed: list[dict] = []
+        screens_run = 0
+
+        for style in styles:
+            for size in sizes:
+                screens_run += 1
+                filters = {**PRESETS[style], "Market Cap.": SIZE_BUCKETS[size]}
+                try:
+                    screener = factory()
+                    screener.set_filter(filters_dict=filters)
+                    df = screener.screener_view(
+                        order=STYLE_ORDER[style], ascend=False, limit=per_screen, verbose=0
+                    )
+                except Exception as exc:  # one bad screen must not abort the sampler
+                    screens_failed.append(
+                        {"style": style, "size": size, "error": f"{type(exc).__name__}: {exc}"}
+                    )
+                    continue
+                if not isinstance(df, pd.DataFrame) or df.empty or "Ticker" not in df.columns:
+                    continue
+                keep = [c for c in _UNIVERSE_COLUMNS if c in df.columns]
+                for row in df[keep].head(per_screen).to_dict(orient="records"):
+                    ticker = row.get("Ticker")
+                    if pd.isna(ticker) or not ticker:
+                        continue
+                    clean = {k: (None if pd.isna(v) else v) for k, v in row.items()}
+                    existing = candidates.get(ticker)
+                    if existing is None:
+                        clean["size_bucket"] = size
+                        clean["styles_hit"] = [style]
+                        candidates[ticker] = clean
+                    elif style not in existing["styles_hit"]:
+                        existing["styles_hit"].append(style)
+
+        result = {
+            "ok": len(screens_failed) < screens_run,
+            "candidates": list(candidates.values()),
+            "screens_run": screens_run,
+            "screens_failed": screens_failed,
+            "source": self.source_name,
+            "tier": self.tier,
+            "as_of": datetime.now(UTC).isoformat(),
+            "note": (
+                "Universe sample across sizes and styles; nothing excluded; "
+                "re-score with analyze_stock"
+            ),
+        }
+        # A fully-failed sample (every screen raised, e.g. a transient scrape blip) is not
+        # cached: caching it would block discovery for the full TTL instead of letting the
+        # next call retry. A partial or fully-successful sample IS cached as before.
+        if result["ok"]:
+            self._cache.set(key, result)
         return result

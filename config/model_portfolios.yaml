@@ -1,40 +1,55 @@
-# Model portfolios used by build_investment_plan. EXAMPLES: bucket weights are allocation
-# choices, not forecasts. Instrument identifiers are examples to VERIFY on your broker
-# (ISIN/ticker) before trading; the copilot never trades.
 profiles:
   cautious:
-    description: "Capital preservation first. Horizon < 3 years or low tolerance for drawdowns."
+    description: Capital preservation first. Horizon < 3 years or low tolerance for
+      drawdowns.
     targets:
-      global_equity: 0.40
-      global_bonds_hedged: 0.60
+      global_equity: 0.4
+      global_bonds_hedged: 0.6
   balanced:
-    description: "Growth with a bond cushion. Horizon 3-8 years or medium tolerance."
+    description: Growth with a bond cushion. Horizon 3-8 years or medium tolerance.
     targets:
-      global_equity: 0.60
+      global_equity: 0.6
       small_cap: 0.05
       emerging_markets: 0.05
-      global_bonds_hedged: 0.30
+      global_bonds_hedged: 0.3
   growth:
-    description: "Equity-heavy. Horizon >= 8 years and you would hold or buy through a -30% year."
+    description: Equity-heavy. Horizon >= 8 years and you would hold or buy through
+      a -30% year.
     targets:
-      global_equity: 0.80
-      small_cap: 0.10
-      emerging_markets: 0.10
-
+      global_equity: 0.8
+      small_cap: 0.1
+      emerging_markets: 0.1
+  aggressive_thematic:
+    description: Growth core plus thematic ETFs without leverage (semiconductors,
+      robotics/AI). Horizon >= 10 years, accepts -35% in a 2020-type crash and ~-55%
+      in a 2008-type one.
+    targets:
+      global_equity: 0.66
+      small_cap: 0.05
+      thematic_semiconductors: 0.18
+      thematic_robotics_ai: 0.11
 instruments:
   global_equity:
-    name: "Vanguard FTSE All-World UCITS ETF (USD) Acc"
-    isin: "IE00BK5BQT80"
-    yf_ticker: "VWCE.MI"
+    name: Vanguard FTSE All-World UCITS ETF (USD) Acc
+    isin: IE00BK5BQT80
+    yf_ticker: VWCE.MI
   small_cap:
-    name: "iShares MSCI World Small Cap UCITS ETF USD (Acc)"
-    isin: "IE00BF4RFH31"
-    yf_ticker: "IUSN.DE"
+    name: iShares MSCI World Small Cap UCITS ETF USD (Acc)
+    isin: IE00BF4RFH31
+    yf_ticker: IUSN.DE
   emerging_markets:
-    name: "Vanguard FTSE Emerging Markets UCITS ETF (USD) Acc"
-    isin: "IE00BK5BR733"
-    yf_ticker: "VFEA.MI"
+    name: Vanguard FTSE Emerging Markets UCITS ETF (USD) Acc
+    isin: IE00BK5BR733
+    yf_ticker: VFEA.MI
   global_bonds_hedged:
-    name: "iShares Core Global Aggregate Bond UCITS ETF EUR Hedged (Acc)"
-    isin: "IE00BDBRDM35"
-    yf_ticker: "AGGH.MI"
+    name: iShares Core Global Aggregate Bond UCITS ETF EUR Hedged (Acc)
+    isin: IE00BDBRDM35
+    yf_ticker: AGGH.MI
+  thematic_semiconductors:
+    name: VanEck Semiconductor UCITS ETF A
+    isin: IE00BMC38736
+    yf_ticker: SMH.MI
+  thematic_robotics_ai:
+    name: iShares Automation & Robotics UCITS ETF USD (Acc)
+    isin: IE00BYZK4552
+    yf_ticker: RBOT.MI

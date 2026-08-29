@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
 
 import httpx
+import pandas as pd
 import yfinance as yf
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
@@ -19,6 +20,8 @@ from portfolio_copilot.portfolio import auction as auction_module
 from portfolio_copilot.portfolio import edge as edge_module
 from portfolio_copilot.portfolio import exposure as exposure_module
 from portfolio_copilot.portfolio import opportunity as opportunity_module
+from portfolio_copilot.portfolio import picker as picker_module
+from portfolio_copilot.portfolio import picker_backtest as picker_backtest_module
 from portfolio_copilot.portfolio import quality as quality_module
 from portfolio_copilot.portfolio import replacement as replacement_module
 from portfolio_copilot.portfolio import snapshots as snapshots_module
@@ -36,13 +39,17 @@ from portfolio_copilot.portfolio.plan import load_model_portfolios as _load_mode
 from portfolio_copilot.portfolio.rebalance import FeeModel, allocate_cash_to_targets
 from portfolio_copilot.portfolio.risk import summarize_portfolio_risk
 from portfolio_copilot.providers import macro as macro_module
+from portfolio_copilot.providers import sec_edgar as sec_edgar_module
 from portfolio_copilot.providers import sec_filings as sec_filings_module
+from portfolio_copilot.providers import yfinance_estimates as estimates_module
+from portfolio_copilot.providers import yfinance_surprises as surprises_module
 from portfolio_copilot.providers.ecb_fx import ECBFXProvider, convert_to_eur
 from portfolio_copilot.providers.ecb_rates import ECBRatesProvider
 from portfolio_copilot.providers.eurostat import EurostatProvider
 from portfolio_copilot.providers.fallback import FallbackMarketData
 from portfolio_copilot.providers.finviz import PRESETS, FinvizProvider
 from portfolio_copilot.providers.investor_relations import ALL_IR_KINDS, IRProvider
+from portfolio_copilot.providers.openfigi import EXCHANGE_TO_YF_SUFFIX, OpenFIGIProvider
 from portfolio_copilot.providers.sec_edgar import SECEdgarProvider
 from portfolio_copilot.providers.stooq import StooqProvider
 from portfolio_copilot.providers.yahooquery_provider import YahooQueryProvider
@@ -63,6 +70,7 @@ finviz_provider = FinvizProvider()
 eurostat_provider = EurostatProvider()
 ecb_rates_provider = ECBRatesProvider()
 ir_provider = IRProvider()
+openfigi_provider = OpenFIGIProvider()
 
 # STABLE/STRENGTHENING theses are healthy; WEAKENING/BROKEN discount utility; a thesis that
 # was never checked, or came back UNVERIFIABLE, is treated as mildly-but-not-fully healthy
@@ -178,6 +186,128 @@ def _snapshot_with_official_data(
     return apply_official_overrides(snapshot, facts), facts
 
 
+# StockSnapshot fields fillable from providers.yfinance_estimates.AnalystEstimates -- the
+# subset the two models share by name (see that module's WORK PACKAGE NOTES: two fields,
+# next_earnings_date/revision_events_90d, have no snapshot counterpart and are dropped here).
+_ESTIMATE_SNAPSHOT_FIELDS = (
+    "est_eps_growth_1y",
+    "est_revenue_growth_1y",
+    "eps_revisions_up_30d",
+    "eps_revisions_down_30d",
+    "revision_balance",
+    "analyst_count",
+    "consensus_score",
+    "target_upside",
+    "revision_net_90d",
+    "revision_pt_change_90d",
+    "days_to_next_earnings",
+)
+
+
+def _enrich_snapshot_with_free_data(
+    snapshot: StockSnapshot, as_of: date | None = None
+) -> tuple[StockSnapshot, dict | None]:
+    """Fill the revisions/catalysts StockSnapshot fields from free tier-B/tier-A sources so
+    scoring/engine.py's revisions and catalysts components stop being permanently
+    unavailable: yfinance analyst estimates + event-dated rating changes
+    (``providers.yfinance_estimates``), Yahoo earnings-surprise history
+    (``providers.yfinance_surprises``) and, for tickers where SEC EDGAR has a CIK on file
+    (US filers), Form 4/4-A insider-filing and 8-K filing counts (``providers.sec_filings``).
+
+    Every one of these four sub-fetches is independently wrapped: a failure (rate limit,
+    no coverage, network error, a European local line yfinance doesn't track rating events
+    for) leaves the corresponding field(s) untouched -- ``None``, never fabricated -- and is
+    recorded as a plain-text note in ``provenance.secondary_sources`` rather than raised or
+    silently dropped (CLAUDE.md rule 6). Returns the (possibly updated) snapshot plus the
+    raw ``AnalystEstimates`` dict (``None`` on failure) for callers that also want to show
+    it directly, e.g. ``analyze_stock``'s ``estimates`` key.
+    """
+    reference = as_of or date.today()
+    updates: dict[str, object] = {}
+    notes: list[str] = []
+    estimates_dict: dict | None = None
+    confidence_cap: float | None = None
+
+    try:
+        estimates = estimates_module.fetch_estimates(
+            snapshot.ticker, reference, ticker_factory=yf.Ticker
+        )
+    except Exception as exc:
+        notes.append(f"yfinance_estimates: unavailable ({type(exc).__name__}: {exc})")
+    else:
+        estimates_dict = estimates.model_dump(mode="json")
+        for field in _ESTIMATE_SNAPSHOT_FIELDS:
+            value = getattr(estimates, field, None)
+            if value is not None:
+                updates[field] = value
+        estimates_confidence = estimates.provenance.get("confidence")
+        notes.append(f"yfinance_estimates: confidence {estimates_confidence}")
+        if isinstance(estimates_confidence, int | float):
+            confidence_cap = float(estimates_confidence)
+
+    try:
+        surprises = surprises_module.fetch_surprise_history(
+            snapshot.ticker, reference, ticker_factory=yf.Ticker
+        )
+    except Exception as exc:
+        notes.append(f"yfinance_surprises: unavailable ({type(exc).__name__}: {exc})")
+    else:
+        if surprises.surprise_mean_8q is not None:
+            updates["surprise_mean_8q"] = surprises.surprise_mean_8q
+            updates["surprise_positive_share_8q"] = surprises.surprise_positive_share_8q
+            updates["surprise_streak"] = surprises.surprise_streak
+        notes.append(
+            f"yfinance_surprises: {surprises.quarters_available or 0} usable quarters"
+        )
+
+    try:
+        cik = sec_provider.cik_for_ticker(snapshot.ticker)
+    except Exception as exc:
+        cik = None
+        notes.append(f"sec_edgar: CIK lookup failed ({type(exc).__name__}: {exc})")
+    if cik is None:
+        notes.append(
+            "sec_edgar: no CIK on file -- insider/8-K activity counts unavailable "
+            "(foreign filer, ADR or unlisted)"
+        )
+    else:
+        try:
+            insider = sec_filings_module.insider_activity(
+                snapshot.ticker, days=90, provider=sec_provider
+            )
+        except Exception as exc:
+            notes.append(f"sec_insider_activity: unavailable ({type(exc).__name__}: {exc})")
+        else:
+            if insider.get("ok"):
+                updates["insider_form4_90d"] = insider.get("filing_count")
+        try:
+            filings_8k = sec_filings_module.list_filings(
+                snapshot.ticker, forms=("8-K",), limit=20, provider=sec_provider
+            )
+        except Exception as exc:
+            notes.append(f"sec_8k_filings: unavailable ({type(exc).__name__}: {exc})")
+        else:
+            window_start = (reference - timedelta(days=90)).isoformat()
+            updates["filings_8k_90d"] = sum(
+                1
+                for f in filings_8k
+                if window_start <= f.get("filing_date", "") <= reference.isoformat()
+            )
+
+    if not updates and not notes:
+        return snapshot, estimates_dict
+
+    prov = snapshot.provenance.model_copy(deep=True)
+    prov.secondary_sources.extend(notes)
+    # yfinance_estimates' own confidence (tracked-field completeness) is a genuine
+    # reliability signal for thin analyst-consensus coverage -- fold it into the numeric
+    # confidence scoring/engine.py actually reads, not just a text note (finding 25).
+    if confidence_cap is not None:
+        prov.confidence = min(prov.confidence, confidence_cap)
+    enriched = snapshot.model_copy(update={**updates, "provenance": prov})
+    return enriched, estimates_dict
+
+
 @mcp.tool()
 def analyze_stock(ticker: str, cross_check_sec: bool = True) -> dict:
     """Deterministic stock score (0-100) + confidence from free public data. Yahoo (tier B)
@@ -201,6 +331,7 @@ def analyze_stock(ticker: str, cross_check_sec: bool = True) -> dict:
                 facts = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
         overridden = apply_official_overrides(raw_snapshot, facts)
         snapshot, evidence = apply_evidence_report(overridden, facts, raw_snapshot=raw_snapshot)
+        snapshot, estimates_dict = _enrich_snapshot_with_free_data(snapshot)
         score = score_snapshot(snapshot)
     except Exception as exc:
         return {
@@ -211,19 +342,24 @@ def analyze_stock(ticker: str, cross_check_sec: bool = True) -> dict:
         }
     result = score.model_dump(mode="json")
     result["evidence"] = evidence
+    result["estimates"] = estimates_dict
     return result
 
 
 @mcp.tool()
 def screen_stocks(tickers: list[str], min_score: float = 0.0) -> list[dict]:
     """
-    Analyze an explicit ticker universe and rank it.
-    V1 intentionally requires a ticker list instead of scraping the whole market.
+    Analyze an explicit ticker universe and rank it. Every ticker is scored, including
+    revisions/catalysts when free data (yfinance analyst estimates/rating events, Yahoo
+    earnings-surprise history, SEC Form 4/8-K counts) covers it -- see
+    ``_enrich_snapshot_with_free_data``. V1 intentionally requires a ticker list instead
+    of scraping the whole market (see ``discover_stocks`` for that).
     """
     results = []
     for ticker in tickers:
         try:
             snapshot, _facts = _snapshot_with_official_data(ticker, cross_check_sec=False)
+            snapshot, _estimates = _enrich_snapshot_with_free_data(snapshot)
             score = score_snapshot(snapshot)
             if score.score >= min_score:
                 results.append(score.model_dump(mode="json"))
@@ -465,12 +601,54 @@ def backtest_plan(
 def discover_stocks(
     preset: Annotated[str, Field(description=f"one of {sorted(PRESETS)}")] = "quality_growth",
     limit: int = 50,
+    mode: Annotated[
+        str,
+        Field(
+            description="'universe' (default): sample every market-cap size bucket x style "
+            "with NO exclusion by size, index membership or overlap -- big and small "
+            "companies in the same net (portfolio.picker's binding potential-ranking "
+            "principle; see FinvizProvider.discover_universe). 'preset': the original "
+            "single narrower Finviz preset screen, unchanged."
+        ),
+    ] = "universe",
+    per_screen: Annotated[
+        int, Field(description="mode='universe' only: max candidates per (style, size) pair")
+    ] = 15,
+    styles: Annotated[
+        list[str] | None,
+        Field(description="mode='universe' only: styles to sample; default all 3 presets"),
+    ] = None,
+    sizes: Annotated[
+        list[str] | None,
+        Field(
+            description="mode='universe' only: size buckets to sample; "
+            "default mega/large/mid/small"
+        ),
+    ] = None,
 ) -> dict:
-    """Discovery step for "I have no idea what to buy": run a preset Finviz screen (public
-    pages, open-source crawler, tier C) and return a candidate shortlist. Candidates must
-    then be re-scored with screen_stocks/analyze_stock; Finviz numbers never enter the score."""
+    """Discovery step for "I have no idea what to buy" (public pages, tier C, no account).
+
+    Nothing is excluded here: mode='universe' (default) samples the WHOLE market across
+    every size bucket and style -- huge and small companies in the same net, no filter by
+    index membership or overlap; mode='preset' runs one narrower Finviz preset screen
+    instead (original behaviour, ``limit`` bounds it). Either way this is discovery only:
+    every candidate must be re-scored with rank_candidates/screen_stocks/analyze_stock --
+    Finviz numbers never enter the score. Size, sector and overlap tags attached later by
+    ``rank_candidates`` are information, never a reason to drop a candidate from this list.
+    """
+    if preset not in PRESETS:
+        raise ToolError(f"Unknown preset '{preset}'. Available: {sorted(PRESETS)}")
     try:
-        return finviz_provider.screen(preset=preset, limit=limit)
+        if mode == "preset":
+            return finviz_provider.screen(preset=preset, limit=limit)
+        if mode != "universe":
+            raise ValueError(f"Unknown mode {mode!r}. Use 'universe' or 'preset'.")
+        kwargs: dict = {"per_screen": per_screen}
+        if styles is not None:
+            kwargs["styles"] = tuple(styles)
+        if sizes is not None:
+            kwargs["sizes"] = tuple(sizes)
+        return finviz_provider.discover_universe(**kwargs)
     except ValueError as exc:
         raise ToolError(str(exc)) from exc
 
@@ -1382,6 +1560,270 @@ def compare_snapshots(
         except (FileNotFoundError, ValueError) as exc:
             raise ToolError(str(exc)) from exc
     return snapshots_module.diff_snapshots(older_snapshot, newer_snapshot)
+
+
+@mcp.tool()
+def resolve_isins(
+    isins: list[str],
+    exch_code: Annotated[
+        str | None,
+        Field(
+            description="Restrict the OpenFIGI search to one exchange (e.g. 'MI' for Borsa "
+            "Italiana, 'US' for US-listed) and, when known, also compose a yfinance-style "
+            "ticker for it (providers.openfigi.EXCHANGE_TO_YF_SUFFIX). Omit to search all "
+            "exchanges for the ISIN (no yf_ticker is composed without a specific exchange)."
+        ),
+    ] = None,
+) -> dict:
+    """Map ISINs to tickers via the free, keyless OpenFIGI mapping API (tier A, no signup):
+    useful when a broker export identifies a holding only by ISIN and another tool
+    (analyze_stock, map_holdings_to_targets) needs a yfinance-style ticker instead. A miss
+    or an exchange OpenFIGI doesn't map to a known Yahoo suffix comes back as `None` for
+    that ISIN -- never an invented ticker. OpenFIGI's anonymous rate limit (25 req/min) is
+    respected internally; a persistent HTTP failure (e.g. 429) is raised as a ToolError
+    rather than silently returning nothing."""
+    try:
+        mapped = openfigi_provider.map_isins(isins, exch_code=exch_code)
+    except httpx.HTTPError as exc:
+        raise ToolError(f"OpenFIGI request failed: {type(exc).__name__}: {exc}") from exc
+
+    suffix = EXCHANGE_TO_YF_SUFFIX.get(exch_code.upper()) if exch_code else None
+    results: dict[str, dict | None] = {}
+    for isin, row in mapped.items():
+        if row is None:
+            results[isin] = None
+            continue
+        entry = dict(row)
+        entry["yf_ticker"] = (
+            f"{entry['ticker']}{suffix}" if suffix is not None and entry.get("ticker") else None
+        )
+        results[isin] = entry
+
+    # openfigi_provider.errors is a module-level singleton's dict: only prune it on a
+    # later successful lookup of the SAME isin, so scope what we report here to the
+    # isins this call actually resolved -- never leak an unrelated prior call's stale
+    # error (finding 26).
+    scoped_errors = {isin: msg for isin, msg in openfigi_provider.errors.items() if isin in mapped}
+
+    return {
+        "results": results,
+        "errors": scoped_errors,
+        "source": openfigi_provider.source_name,
+        "tier": "A",
+        "as_of": datetime.now(UTC).isoformat(),
+    }
+
+
+@mcp.tool()
+def rank_candidates(
+    tickers: list[str],
+    path: Annotated[
+        str | None,
+        Field(
+            description="Local broker export used only to compute each candidate's hidden-"
+            "exposure overlap/diversification tag (portfolio.exposure) -- never to filter "
+            "the ranking. Omit to rank without portfolio context (themes/diversification "
+            "come back empty/None for every candidate)."
+        ),
+    ] = None,
+    top_n: int = 10,
+    min_confidence: Annotated[
+        float,
+        Field(
+            description="Below this confidence, a candidate stays in the ranking but gets "
+            "a 'low_confidence' tag in its `tags` list -- information, never a filter."
+        ),
+    ] = 0.0,
+) -> dict:
+    """Score every ticker in `tickers` (screen_stocks) and rank the WHOLE set by potential --
+    huge and small caps in the same net. Nothing is excluded for being big, small, already
+    inside an index/ETF, or concentrated in one sector: size, sector and index-overlap are
+    informational tags attached to each ranked idea (portfolio.picker.annotate), never a
+    filter. Only the caller's own risk caps (get_portfolio_config's risk_limits, when `path`
+    is given) and a later red-team pass should ever limit how big a resulting BUY is sized --
+    never this ranking itself. `top_n` only bounds how many of the ranked ideas are returned
+    in `ranked`; every scored ticker (minus screening-error placeholders, reported separately
+    in `screening_errors`) still counts toward the summary stats."""
+    scored = screen_stocks(tickers)
+    screening_errors = {s["ticker"]: s["error"] for s in scored if s.get("error")}
+
+    exposure = None
+    if path:
+        try:
+            portfolio = _parse_export(path)
+        except (FileNotFoundError, ValueError) as exc:
+            raise ToolError(str(exc)) from exc
+        exposure = exposure_module.portfolio_exposure(
+            [h.model_dump() for h in portfolio.holdings]
+        )
+
+    cfg = _load_portfolio_config()
+    caps = cfg.get("risk_limits") or {}
+    result = picker_module.shortlist(
+        scored, exposure, caps, top_n=top_n, min_confidence=min_confidence
+    )
+    if screening_errors:
+        result["screening_errors"] = screening_errors
+    return result
+
+
+# us-gaap tags for diluted/basic EPS -- CONCEPTS in providers/sec_edgar.py tracks revenue
+# but has no EPS concept, so backtest_picker's fundamental_momentum needs its own lookup.
+_EPS_TAGS = ("EarningsPerShareDiluted", "EarningsPerShareBasic")
+
+
+def _annual_fundamental_rows(facts: dict, tags: tuple[str, ...]) -> list[dict]:
+    """Every distinct fiscal-year (10-K/10-K/A) row for any tag in `tags`, deduped by the
+    period's 'end' date and keeping the EARLIEST 'filed' occurrence for it (the original
+    10-K, not a later restated comparative). Scans every tag without an early break: a
+    company can switch XBRL tags for the same concept over time (e.g. ``Revenues`` ->
+    ``RevenueFromContractWithCustomerExcludingAssessedTax``), and breaking out of the loop
+    on the first tag with any match would silently hide the newer tag's rows behind a
+    handful of stale ones from the old tag. Pure function, no I/O -- offline-testable
+    against a hand-built ``facts`` dict."""
+    gaap = (facts or {}).get("facts", {}).get("us-gaap", {})
+    by_end: dict[str, dict] = {}
+    for tag in tags:
+        units = gaap.get(tag, {}).get("units", {})
+        # Revenue tags report in "USD"; per-share tags (EPS) report in "USD/shares" --
+        # fall back to whatever unit key is present, same pattern as sec_edgar.py's
+        # _annual_series, rather than hardcoding "USD" and silently finding no EPS rows.
+        rows = units.get("USD") or next(iter(units.values()), [])
+        for row in rows:
+            if row.get("form") not in {"10-K", "10-K/A"} or row.get("fp") != "FY":
+                continue
+            end, filed, value = row.get("end"), row.get("filed"), row.get("val")
+            if not end or not filed or value is None:
+                continue
+            existing = by_end.get(end)
+            if existing is None or filed < existing["filed"]:
+                by_end[end] = {"end": end, "filed": filed, "value": float(value)}
+    return sorted(by_end.values(), key=lambda r: r["end"])
+
+
+def _fetch_asfiled_fundamentals(symbol: str) -> list[dict]:
+    """As-filed ``{end, filed, revenue, eps}`` rows for `symbol` from raw SEC EDGAR XBRL
+    company facts (US filers only), for ``portfolio.picker_backtest``'s point-in-time
+    fundamental_momentum component. Every failure -- no CIK on file, a malformed payload,
+    a network error -- degrades to ``[]``: ``proxy_score_at`` then simply reports
+    fundamental_momentum as unavailable for this ticker rather than a fabricated value."""
+    try:
+        cik = sec_provider.cik_for_ticker(symbol)
+        if cik is None:
+            return []
+        facts = sec_provider._get_json(sec_edgar_module.FACTS_URL.format(cik=cik))
+    except Exception:
+        return []
+    revenue_rows = {
+        r["end"]: r
+        for r in _annual_fundamental_rows(facts, tuple(sec_edgar_module.CONCEPTS["revenue"]))
+    }
+    eps_rows = {r["end"]: r for r in _annual_fundamental_rows(facts, _EPS_TAGS)}
+    rows: list[dict] = []
+    for end in sorted(set(revenue_rows) | set(eps_rows)):
+        rev, eps = revenue_rows.get(end), eps_rows.get(end)
+        filed = min(r["filed"] for r in (rev, eps) if r is not None)
+        rows.append(
+            {
+                "end": end,
+                "filed": filed,
+                "revenue": rev["value"] if rev else None,
+                "eps": eps["value"] if eps else None,
+            }
+        )
+    return rows
+
+
+@mcp.tool()
+def backtest_picker(
+    tickers: list[str],
+    years: int = 5,
+    horizon_months: int = 6,
+    benchmark: str = "VWCE.MI",
+) -> dict:
+    """Disclosed PROXY backtest of the picker's ranking logic (portfolio.picker_backtest) on
+    live free data: for each ticker, fetches price history (yfinance, tier B), earnings-
+    surprise history (yfinance, tier B, see providers.yfinance_surprises), analyst rating-
+    change events (yfinance, tier B, US-listed/ADR only) and as-filed annual fundamentals
+    (SEC EDGAR XBRL, tier A, US filers only), then replays a quarterly-rebalance top-quintile
+    strategy against `benchmark`. This is NOT the production scorer (scoring/engine.py) --
+    it is a narrower, point-in-time-honest proxy answering "would this ranking logic have
+    beaten the benchmark on past data". Every mandatory disclosure (survivorship bias --
+    today's tickers only --, Yahoo backfill risk, no transaction costs, event-dated not
+    true point-in-time consensus revisions) is always returned under `disclosures`; a
+    ticker/benchmark with no usable price history is skipped and reported, never invented."""
+    reference = date.today()
+    try:
+        benchmark_closes = provider.get_monthly_closes({"benchmark": benchmark}, period="max")
+    except Exception as exc:
+        return {
+            "ok": False,
+            "error": f"Could not fetch benchmark {benchmark}: {type(exc).__name__}: {exc}",
+        }
+    if "benchmark" not in benchmark_closes.columns or benchmark_closes["benchmark"].dropna().empty:
+        return {"ok": False, "error": f"No usable price history for benchmark {benchmark}"}
+    benchmark_prices = benchmark_closes["benchmark"].dropna()
+
+    universe: dict[str, dict] = {}
+    skipped: dict[str, str] = {}
+    for ticker in tickers:
+        symbol = ticker.strip().upper()
+        try:
+            closes = provider.get_monthly_closes({symbol: symbol}, period="max")
+        except Exception as exc:
+            skipped[symbol] = f"{type(exc).__name__}: {exc}"
+            continue
+        if symbol not in closes.columns or closes[symbol].dropna().empty:
+            skipped[symbol] = "no usable price history"
+            continue
+        prices = closes[symbol].dropna()
+
+        try:
+            surprise_history = surprises_module.fetch_surprise_history(
+                symbol, reference, ticker_factory=yf.Ticker
+            )
+            surprises = [q.model_dump(mode="json") for q in surprise_history.quarters]
+        except Exception:
+            surprises = []
+
+        try:
+            rating_events = estimates_module.fetch_rating_events(
+                symbol, reference, ticker_factory=yf.Ticker
+            )
+        except Exception:
+            rating_events = []
+
+        universe[symbol] = {
+            "prices": prices,
+            "surprises": surprises,
+            "fundamentals": _fetch_asfiled_fundamentals(symbol),
+            "rating_events": rating_events,
+        }
+
+    if not universe:
+        return {"ok": False, "error": "No ticker had usable price history", "skipped": skipped}
+
+    last_date = benchmark_prices.index.max()
+    cutoff = last_date - pd.DateOffset(months=horizon_months)
+    start = last_date - pd.DateOffset(years=years)
+    rebalance_dates = [ts.date() for ts in pd.date_range(start=start, end=cutoff, freq="QE")]
+    if not rebalance_dates:
+        return {
+            "ok": False,
+            "error": "No rebalance date fits the requested years/horizon_months window",
+        }
+
+    result = picker_backtest_module.run_proxy_backtest(
+        universe=universe,
+        benchmark_prices=benchmark_prices,
+        rebalance_dates=rebalance_dates,
+        horizon_months=horizon_months,
+    )
+    result["ok"] = True
+    result["tickers_used"] = sorted(universe)
+    result["skipped"] = skipped
+    result["benchmark"] = benchmark
+    return result
 
 
 @mcp.prompt()

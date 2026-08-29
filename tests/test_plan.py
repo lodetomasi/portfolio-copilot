@@ -16,7 +16,7 @@ START = date(2026, 1, 15)
 
 def test_model_portfolios_are_valid_and_sum_to_one():
     models = load_model_portfolios()
-    assert set(models["profiles"]) == {"cautious", "balanced", "growth"}
+    assert set(models["profiles"]) == {"cautious", "balanced", "growth", "aggressive_thematic"}
     for profile in models["profiles"].values():
         assert abs(sum(profile.targets.values()) - 1.0) < 1e-9
         assert all(bucket in models["instruments"] for bucket in profile.targets)

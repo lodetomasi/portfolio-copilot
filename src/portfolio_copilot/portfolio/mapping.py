@@ -21,7 +21,7 @@ Rule order:
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from portfolio_copilot.models import AssetType
@@ -101,6 +101,7 @@ def map_holdings(
     holdings: Sequence[Mapping[str, Any]],
     targets: Mapping[str, float],
     instruments: Mapping[str, Mapping[str, Any]],
+    isin_resolver: Callable[[str], str | None] | None = None,
 ) -> dict[str, Any]:
     """Assign each holding to a target allocation bucket, or explain why it can't be.
 
@@ -110,6 +111,16 @@ def map_holdings(
         targets: the model portfolio's bucket -> target weight map.
         instruments: bucket -> {"name", "isin", "yf_ticker"} for the same profile
             (``portfolio.plan.load_model_portfolios(...)["instruments"]``).
+        isin_resolver: optional ``isin -> ticker | None`` lookup (e.g.
+            ``providers.openfigi.OpenFIGIProvider.yf_ticker_for``), tried on a satellite
+            holding (single stock, certificate, leveraged instrument) that carries an ISIN
+            but no ``symbol`` of its own, so a caller can still price it even though it
+            stays outside the target-bucket system. Never required: omitted (the default),
+            or a failed/empty lookup, leaves that holding's ``unmapped`` entry exactly as
+            before -- no ``resolved_ticker`` key at all -- so this never invents a ticker
+            and never changes bucket assignment, only adds a purely additive field when a
+            resolution actually succeeds. Any exception it raises is swallowed the same way
+            (degrade, never let one bad lookup crash the whole mapping pass).
 
     Returns:
         ``current_values``: EUR value currently held per bucket in ``targets`` (0.0 for a
@@ -119,7 +130,8 @@ def map_holdings(
             adds its own key, valued at its summed market value.
         ``mapped``: one ``{"name", "bucket", "rule"}`` entry per matched holding.
         ``unmapped``: one ``{"name", "asset_type", "market_value", "why"}`` entry per
-            satellite / unrecognized holding.
+            satellite / unrecognized holding, plus ``"resolved_ticker"`` when
+            ``isin_resolver`` was given and successfully resolved that holding's ISIN.
         ``coverage``: mapped value / total portfolio value (``0.0`` when the portfolio
             is empty or worth nothing, never a division by zero).
     """
@@ -161,14 +173,20 @@ def map_holdings(
             mapped_value += market_value
             continue
 
-        unmapped.append(
-            {
-                "name": name,
-                "asset_type": asset_type,
-                "market_value": market_value,
-                "why": _unmapped_reason(asset_type, leverage),
-            }
-        )
+        entry = {
+            "name": name,
+            "asset_type": asset_type,
+            "market_value": market_value,
+            "why": _unmapped_reason(asset_type, leverage),
+        }
+        if isin_resolver is not None and isin and not holding.get("symbol"):
+            try:
+                resolved = isin_resolver(str(isin).strip().upper())
+            except Exception:
+                resolved = None
+            if resolved:
+                entry["resolved_ticker"] = resolved
+        unmapped.append(entry)
 
     coverage = mapped_value / total_value if total_value > 0 else 0.0
 

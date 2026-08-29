@@ -2,7 +2,7 @@
   "name": "portfolio-copilot",
   "displayName": "Portfolio Copilot",
   "description": "Rookie in, expert processing, rookie out: investment plan with calendar, portfolio review, cash deployment, fee-aware rebalancing and stock picking on a LOCAL broker XLSX/CSV export. No broker login, no broker access, no order execution: suggested orders only (MANUAL_ONLY).",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "author": {
     "name": "Lorenzo De Tomasi"
   },

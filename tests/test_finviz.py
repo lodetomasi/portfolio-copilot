@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from portfolio_copilot.providers.finviz import PRESETS, FinvizProvider, validate_preset
+from portfolio_copilot.providers.finviz import PRESETS, STYLE_ORDER, FinvizProvider, validate_preset
 
 
 @pytest.mark.parametrize("preset", sorted(PRESETS))
@@ -78,3 +78,51 @@ def test_screen_degrades_when_scraper_call_raises():
     assert out["candidates"] == []
     assert "finviz unreachable" in out["error"]
     assert out["source"] == "finviz" and out["tier"] == "C"
+
+
+# --- screen() must rank by the style's own signal, not always Market Cap. (finding 8) -----
+
+
+@pytest.mark.parametrize("preset", sorted(PRESETS))
+def test_screen_orders_by_the_preset_own_style_order_not_market_cap(preset):
+    _FakeScreener.calls.clear()
+    FinvizProvider(screener_factory=_FakeScreener).screen(preset, limit=5)
+    order_used = _FakeScreener.calls[-1][0]
+    assert order_used == STYLE_ORDER[preset]
+
+
+# --- a transient scrape failure must not be cached as "unavailable" for the TTL (finding 28)
+
+
+def test_screen_does_not_cache_a_failed_scrape():
+    class FlakyThenGood:
+        calls = 0
+
+        def __init__(self):
+            pass
+
+        def set_filter(self, filters_dict):
+            pass
+
+        def screener_view(self, order, ascend, limit, verbose):
+            FlakyThenGood.calls += 1
+            if FlakyThenGood.calls == 1:
+                raise ConnectionError("blip")
+            return pd.DataFrame(
+                {
+                    "Ticker": ["AAA"],
+                    "Company": ["A Inc"],
+                    "Sector": ["Tech"],
+                    "Market Cap": [5e9],
+                    "Price": [10.0],
+                }
+            )
+
+    provider = FinvizProvider(screener_factory=FlakyThenGood)
+    first = provider.screen("quality_growth", limit=5)
+    assert first["ok"] is False
+
+    second = provider.screen("quality_growth", limit=5)
+    assert FlakyThenGood.calls == 2  # the failure was not cached; the retry actually ran
+    assert second["ok"] is True
+    assert second is not first

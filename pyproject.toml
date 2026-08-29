@@ -1,6 +1,6 @@
 [project]
 name = "portfolio-copilot"
-version = "0.2.0"
+version = "0.3.1"
 description = "Local, broker-agnostic Claude Code MCP for portfolio analysis, stock discovery and rebalancing"
 readme = "README.md"
 requires-python = ">=3.12"
