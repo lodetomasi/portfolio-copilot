@@ -36,7 +36,9 @@ With no tickers ask one thing: "Steady companies (quality_growth), cheap ones
    quality `max_single_stock_weight`, growth `max_growth_stock_weight`, high-risk
    `max_high_risk_stock_weight`. Also `portfolio_exposure(path)` → flag if the top idea's
    sector/theme already sits inside a large existing driver — a good score is not
-   automatically a good addition.
+   automatically a good addition. Also `capital_auction(path, cash_eur=0,
+   candidate_tickers=<the top 5>)` → its `candidates_for_ledger` (ranking + prices), kept
+   only for `log_decision` below, never to size an order (that stays `deploy-cash`'s job).
 5. For the **top idea only**: `filing_sections(ticker, form="10-K", items=["1A","7"])`
    (Risk Factors + MD&A) and `insider_activity(ticker, days=90)` → what management claims
    vs. what the numbers/insider filings actually show, **2 lines max**.
@@ -47,9 +49,11 @@ With no tickers ask one thing: "Steady companies (quality_growth), cheap ones
    `rejected` → downgrade to `WATCH`/`NO_BUY` and give the red team's reason instead. Never
    called for `WATCH`/`NO_BUY`.
 8. `log_decision(symbol, action, reason, score, confidence, red_team=<verdict>,
-   alternative=<the portfolio's core bucket ETF>, category=<preset or sector>)` for every
+   alternative=<the portfolio's core bucket ETF>, category=<preset or sector>, candidates=
+   <top 5 of step 4's `candidates_for_ledger`, when an export was given>)` for every
    `BUY_SMALL` — the alternative is always "buy more of the core" so `review_decisions`/
-   `personal_edge` can measure the pick against just holding the index.
+   `personal_edge`/its `opportunity` section can measure the pick against the index and
+   everything else that was ranked.
 
 ## Answer (≤ 6 lines + one line per idea, max 3 ideas)
 

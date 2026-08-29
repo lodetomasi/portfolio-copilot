@@ -33,6 +33,9 @@ NEW_TOOL_NAMES = {
     "insider_activity",
     "investor_relations_links",
     "map_holdings_to_targets",
+    "save_portfolio_snapshot",
+    "list_portfolio_snapshots",
+    "compare_snapshots",
 }
 
 PRE_EXISTING_TOOL_NAMES = {

@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import json
+import os
 from datetime import UTC, date, datetime
+from pathlib import Path
 from typing import Annotated
 
 import httpx
 import yfinance as yf
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
-from pydantic import Field
+from pydantic import Field, ValidationError
 
 from portfolio_copilot.analytics.merge import apply_evidence_report, apply_official_overrides
 from portfolio_copilot.models import AssetType, StockSnapshot
@@ -15,8 +18,10 @@ from portfolio_copilot.parsers.broker_export import parse_portfolio_export as _p
 from portfolio_copilot.portfolio import auction as auction_module
 from portfolio_copilot.portfolio import edge as edge_module
 from portfolio_copilot.portfolio import exposure as exposure_module
+from portfolio_copilot.portfolio import opportunity as opportunity_module
 from portfolio_copilot.portfolio import quality as quality_module
 from portfolio_copilot.portfolio import replacement as replacement_module
+from portfolio_copilot.portfolio import snapshots as snapshots_module
 from portfolio_copilot.portfolio import thesis as thesis_module
 from portfolio_copilot.portfolio.backtest import simulate_cash_flow_plan
 from portfolio_copilot.portfolio.config import load_portfolio_config as _load_portfolio_config
@@ -382,8 +387,8 @@ def build_investment_plan(
         variable_fee_pct=variable_fee_pct,
         max_fee_ratio=max_fee_ratio,
     )
-    start = date.fromisoformat(start_date) if start_date else date.today()
     try:
+        start = date.fromisoformat(start_date) if start_date else date.today()
         return _build_plan(
             cash_now=cash_now,
             monthly_contribution=monthly_contribution,
@@ -511,39 +516,58 @@ def log_decision(
             "actually apply); omit for an ordinary single-stock decision"
         ),
     ] = None,
+    candidates: Annotated[
+        list[dict] | None,
+        Field(
+            description="The full ranking shown at decision time (e.g. capital_auction's "
+            "'candidates_for_ledger'): [{'symbol','kind','utility','price','price_symbol'}, "
+            "...]. Stored so portfolio.opportunity can later measure regret against every "
+            "option that was on the table, not just the single recorded 'alternative'."
+        ),
+    ] = None,
 ) -> dict:
     """Append a suggested decision to the local decision ledger (data/private, git-ignored).
     Records what was decided and the shadow alternative so it can be measured later."""
-    rec = record_decision(
-        {
-            "symbol": symbol,
-            "action": action,
-            "reason": reason,
-            "score": score,
-            "confidence": confidence,
-            "price": price,
-            "amount_eur": amount_eur,
-            "alternative": alternative,
-            "alternative_price": alternative_price,
-            "red_team": red_team,
-            "sources": sources or [],
-            "category": category,
-            "theme": theme,
-            "thesis_status": thesis_status,
-            "cap_eur": cap_eur,
-            "decision_kind": decision_kind,
-        }
-    )
+    try:
+        rec = record_decision(
+            {
+                "symbol": symbol,
+                "action": action,
+                "reason": reason,
+                "score": score,
+                "confidence": confidence,
+                "price": price,
+                "amount_eur": amount_eur,
+                "alternative": alternative,
+                "alternative_price": alternative_price,
+                "red_team": red_team,
+                "sources": sources or [],
+                "category": category,
+                "theme": theme,
+                "thesis_status": thesis_status,
+                "cap_eur": cap_eur,
+                "decision_kind": decision_kind,
+                "candidates": candidates or [],
+            }
+        )
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     return rec.model_dump(mode="json")
 
 
-@mcp.tool()
-def review_decisions(min_days: int = 90) -> dict:
-    """Shadow portfolio: for every logged decision older than min_days, compare what was
-    chosen with the recorded alternative at today's prices (free provider). Reports mean
-    decision alpha and hit rate, and refuses to draw conclusions on fewer than 10 decisions."""
-    decisions = load_decisions()
+def _opportunity_prices(decisions: list) -> tuple[dict[str, float | None], dict[str, str]]:
+    """Prices needed for portfolio.opportunity's regret measurement: every decision's own
+    symbol/alternative plus every candidate (and its price_symbol) shown at decision time.
+    Cash candidates need no price (opportunity_cost never looks one up for them), so they
+    are skipped rather than logged as a spurious price error."""
     symbols = {d.symbol for d in decisions} | {d.alternative for d in decisions if d.alternative}
+    for d in decisions:
+        for c in d.candidates:
+            if c.kind == "cash":
+                continue
+            symbols.add(c.symbol)
+            if c.price_symbol:
+                symbols.add(c.price_symbol)
     prices: dict[str, float | None] = {}
     price_errors: dict[str, str] = {}
     for symbol in sorted(symbols):
@@ -552,9 +576,35 @@ def review_decisions(min_days: int = 90) -> dict:
         except Exception as exc:
             prices[symbol] = None
             price_errors[symbol] = f"{type(exc).__name__}: {exc}"
+    return prices, price_errors
+
+
+def _load_decisions_or_tool_error() -> list:
+    """load_decisions(), turning a corrupted/legacy decisions.jsonl line into a clear
+    ToolError instead of letting the raw json.JSONDecodeError/pydantic.ValidationError
+    reach the caller as an opaque 'Error executing tool <name>' (CLAUDE.md rule 6: degrade
+    and say so, never go silent/opaque)."""
+    try:
+        return load_decisions()
+    except (json.JSONDecodeError, ValidationError) as exc:
+        raise ToolError(f"decisions.jsonl is corrupted: {exc}") from exc
+
+
+@mcp.tool()
+def review_decisions(min_days: int = 90) -> dict:
+    """Shadow portfolio: for every logged decision older than min_days, compare what was
+    chosen with the recorded alternative at today's prices (free provider). Reports mean
+    decision alpha and hit rate, and refuses to draw conclusions on fewer than 10 decisions.
+    Also includes an 'opportunity' section (portfolio.opportunity): regret against the full
+    ranking shown at decision time, when decisions were logged with 'candidates'."""
+    decisions = _load_decisions_or_tool_error()
+    prices, price_errors = _opportunity_prices(decisions)
     report = evaluate_decisions(decisions, prices, min_days=min_days)
     report["price_errors"] = price_errors
     report["source"] = provider.source_name
+    report["opportunity"] = opportunity_module.opportunity_report(
+        decisions, prices, as_of=date.today(), min_days=min_days
+    )
     return report
 
 
@@ -855,6 +905,44 @@ def _targets_and_instruments() -> tuple[dict, dict]:
     return targets, instruments
 
 
+def _price_ranking_for_ledger(
+    ranking: list[dict], instruments: dict, stock_prices: dict[str, float | None]
+) -> list[dict]:
+    """capital_auction's 'ranking' ({symbol, utility, kind}), enriched with each candidate's
+    current price and price_symbol so it can be passed straight into log_decision's
+    'candidates' -- the raw material for portfolio.opportunity's later regret measurement.
+
+    A 'stock' candidate is priced from the snapshot already fetched to score it (no second
+    network call). A 'bucket' candidate is priced through its model-portfolio proxy ETF
+    (config/model_portfolios.yaml's yf_ticker); a bucket with no configured instrument, or a
+    price lookup that fails, gets price=None -- never invented. 'cash' needs no price."""
+    bucket_price_cache: dict[str, float | None] = {}
+
+    def _bucket_price(yf_ticker: str) -> float | None:
+        if yf_ticker not in bucket_price_cache:
+            try:
+                bucket_price_cache[yf_ticker] = provider.get_stock_snapshot(yf_ticker).price
+            except Exception:
+                bucket_price_cache[yf_ticker] = None
+        return bucket_price_cache[yf_ticker]
+
+    enriched: list[dict] = []
+    for row in ranking:
+        entry = dict(row)
+        if row["kind"] == "stock":
+            entry["price"] = stock_prices.get(row["symbol"])
+            entry["price_symbol"] = None
+        elif row["kind"] == "bucket":
+            yf_ticker = (instruments.get(row["symbol"]) or {}).get("yf_ticker")
+            entry["price_symbol"] = yf_ticker
+            entry["price"] = _bucket_price(yf_ticker) if yf_ticker else None
+        else:  # cash
+            entry["price"] = None
+            entry["price_symbol"] = None
+        enriched.append(entry)
+    return enriched
+
+
 @mcp.tool()
 def capital_auction(
     path: str,
@@ -914,6 +1002,7 @@ def capital_auction(
         raise ToolError(f"Could not load stored theses: {exc}") from exc
     exposure = exposure_module.portfolio_exposure(holdings_dump)
     stock_errors: dict[str, str] = {}
+    stock_prices: dict[str, float | None] = {}
     for ticker in candidate_tickers or []:
         symbol = ticker.strip().upper()
         try:
@@ -922,6 +1011,7 @@ def capital_auction(
         except Exception as exc:
             stock_errors[symbol] = f"{type(exc).__name__}: {exc}"
             continue
+        stock_prices[symbol] = snapshot.price
         thesis = theses.get(symbol)
         status = thesis.history[-1].status if thesis and thesis.history else None
         candidate_exposure = exposure_module.classify(
@@ -958,6 +1048,9 @@ def capital_auction(
     }
     if stock_errors:
         result["stock_errors"] = stock_errors
+    result["candidates_for_ledger"] = _price_ranking_for_ledger(
+        result["ranking"], instruments, stock_prices
+    )
     return result
 
 
@@ -972,7 +1065,7 @@ def personal_edge(
     by category/theme (see log_decision's category/theme fields), from the decision
     ledger's measured rows. Refuses to call a group's evidence threshold raise/lower until
     it has at least min_sample measured decisions in it (default 10, CLAUDE.md-aligned)."""
-    decisions = load_decisions()
+    decisions = _load_decisions_or_tool_error()
     symbols = {d.symbol for d in decisions} | {d.alternative for d in decisions if d.alternative}
     prices: dict[str, float | None] = {}
     price_errors: dict[str, str] = {}
@@ -1016,7 +1109,7 @@ def decision_quality(decision_id: str) -> dict:
     alternative, a recorded price/amount and a non-deteriorating thesis? Never looks at the
     outcome. Paired here with the decision/outcome matrix using today's measured alpha, when
     the decision is already priceable."""
-    decisions = load_decisions()
+    decisions = _load_decisions_or_tool_error()
     record = next((d for d in decisions if d.id == decision_id), None)
     if record is None:
         raise ToolError(f"No decision found with id {decision_id!r}")
@@ -1183,6 +1276,112 @@ def map_holdings_to_targets(path: str, base_currency: str = "EUR") -> dict:
         return _map_holdings([h.model_dump() for h in portfolio.holdings], targets, instruments)
     except ValueError as exc:
         raise ToolError(str(exc)) from exc
+
+
+def _plan_targets_for_snapshot() -> dict | None:
+    """Targets to record on a snapshot: the saved investment plan's own targets
+    (data/private/investment_plan.json) take precedence over get_portfolio_config()'s --
+    the plan is what the user is actually committed to, the config is only a fallback for
+    before a plan exists. Never invents a value: None when neither source has one."""
+    home = Path(os.environ.get("PORTFOLIO_COPILOT_HOME") or snapshots_module.DEFAULT_HOME)
+    plan_path = home / "investment_plan.json"
+    if plan_path.exists():
+        try:
+            plan = json.loads(plan_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            plan = None
+        if plan and plan.get("targets"):
+            return plan["targets"]
+    try:
+        return _load_portfolio_config().get("targets") or None
+    except FileNotFoundError:
+        return None
+
+
+@mcp.tool()
+def save_portfolio_snapshot(
+    path: Annotated[str, Field(description="Path to a local broker portfolio export (CSV/XLSX)")],
+    as_of: Annotated[
+        str | None,
+        Field(description="ISO date (YYYY-MM-DD) to file this snapshot under; defaults to today"),
+    ] = None,
+    force: Annotated[
+        bool, Field(description="Overwrite an existing stored snapshot for the same date")
+    ] = False,
+) -> dict:
+    """Freeze the local export as one dated monthly snapshot (portfolio.snapshots,
+    data/private/snapshots, git-ignored) so a later check-in can measure what actually
+    changed instead of re-deriving history that was never recorded. Holdings are mapped to
+    target buckets the same way map_holdings_to_targets does; the stored plan_targets
+    prefer data/private/investment_plan.json's own targets over get_portfolio_config()'s.
+    Refuses to overwrite an existing date unless force=True."""
+    try:
+        portfolio = _parse_export(path)
+    except (FileNotFoundError, ValueError) as exc:
+        raise ToolError(str(exc)) from exc
+    targets, instruments = _targets_and_instruments()
+    holdings_dump = [h.model_dump() for h in portfolio.holdings]
+    try:
+        mapping_result = _map_holdings(holdings_dump, targets, instruments)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    buckets = {m["name"]: m["bucket"] for m in mapping_result["mapped"]}
+    resolved_as_of = as_of or date.today().isoformat()
+    try:
+        snapshot = snapshots_module.save_snapshot(
+            portfolio.model_dump(mode="json"),
+            resolved_as_of,
+            buckets=buckets,
+            plan_targets=_plan_targets_for_snapshot(),
+            force=force,
+        )
+    except (FileExistsError, ValueError) as exc:
+        raise ToolError(str(exc)) from exc
+    result = snapshot.model_dump(mode="json")
+    result["unmapped"] = mapping_result["unmapped"]
+    result["coverage"] = mapping_result["coverage"]
+    return result
+
+
+@mcp.tool()
+def list_portfolio_snapshots() -> dict:
+    """Every stored monthly snapshot date (portfolio.snapshots, data/private/snapshots,
+    git-ignored, local-only), oldest first."""
+    return {"dates": snapshots_module.list_snapshots()}
+
+
+@mcp.tool()
+def compare_snapshots(
+    older: Annotated[str, Field(description="ISO date of the earlier stored snapshot")],
+    newer: Annotated[
+        str | None,
+        Field(
+            description="ISO date of the later stored snapshot; defaults to the most "
+            "recently stored one (typically the one just saved by save_portfolio_snapshot)"
+        ),
+    ] = None,
+) -> dict:
+    """Diff two stored monthly snapshots (portfolio.snapshots.diff_snapshots): total and
+    per-holding/per-bucket value change since 'older'. Cannot separate contributions from
+    market move on its own -- always read the returned 'note' before calling a number
+    'gain' or 'loss'."""
+    try:
+        older_snapshot = snapshots_module.load_snapshot(older)
+    except (FileNotFoundError, ValueError) as exc:
+        raise ToolError(str(exc)) from exc
+    if newer is None:
+        try:
+            newer_snapshot = snapshots_module.latest_snapshot()
+        except (FileNotFoundError, ValueError) as exc:
+            raise ToolError(str(exc)) from exc
+        if newer_snapshot is None:
+            raise ToolError("No snapshots stored yet.")
+    else:
+        try:
+            newer_snapshot = snapshots_module.load_snapshot(newer)
+        except (FileNotFoundError, ValueError) as exc:
+            raise ToolError(str(exc)) from exc
+    return snapshots_module.diff_snapshots(older_snapshot, newer_snapshot)
 
 
 @mcp.prompt()

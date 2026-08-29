@@ -39,6 +39,14 @@ it the weight check is skipped and said so).
    current_value_eur=<its market value>, candidate_tickers=[] or any alternative the user
    names, holdings=<parse_portfolio_export's holdings>)`. Only REDUCE/SELL when it returns
    `REPLACE`/`SELL_TO_CASH`; otherwise `HOLD` — sell only if something is better, else HOLD.
+8. For a SELL (or REDUCE): `capital_auction(path, cash_eur=<the sold value_eur>,
+   candidate_tickers=[])` shows where the freed cash goes best; its top-ranked bucket is
+   `alternative` (the bucket the proceeds go to) and that same bucket's entry in
+   `candidates_for_ledger` gives `alternative_price`. `log_decision(symbol=ticker, action,
+   reason, score, confidence, price, amount_eur=<sold value_eur>, alternative=<that
+   bucket>, alternative_price=<that bucket's price from candidates_for_ledger>,
+   candidates=<top 5 of its `candidates_for_ledger`>)`. The sold ticker itself is added to
+   the comparison automatically -- do not add it again.
 
 ## Answer (≤ 6 lines)
 

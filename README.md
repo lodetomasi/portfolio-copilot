@@ -8,7 +8,7 @@
 *English abstract — Portfolio Copilot is a Claude Code plugin + local MCP server for retail
 investors: investment plan with calendar, portfolio review, cash deployment, fee-aware
 rebalancing and stock picking from a local broker export. Zero signup data sources (Yahoo, SEC
-EDGAR, ECB, Eurostat, Finviz), deterministic Python engines, 1046 offline tests, suggested
+EDGAR, ECB, Eurostat, Finviz), deterministic Python engines, 1092 offline tests, suggested
 orders only — never trades, never logs into a broker.*
 
 ---
@@ -95,17 +95,25 @@ Motori deterministici (Python, `src/portfolio_copilot/`): parser, scoring, alloc
 cash-flow-first (waterfall sul bucket più sottopeso + top-up entro banda, mai sotto l'ordine
 minimo economico = fee / 1%), piano con cadenza versamenti, backtest mensile, thesis engine,
 replacement engine (vendi solo se c'è di meglio, fee comprese), hidden-exposure graph, capital
-auction, decision ledger + shadow portfolio, personal edge, decision quality, macro regime.
-Mappa completa con stato per motore: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+auction, decision ledger + shadow portfolio, personal edge, decision quality, macro regime,
+snapshot store e opportunity-cost ledger. Mappa completa con stato per motore:
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+Due cose in più che il copilot si ricorda per te: ad ogni check-in salva una "foto" del
+portafoglio (quanto vale, come è diviso nei bucket), così al check-in dopo ti dice quanto è
+cambiato in totale — sapendo però che quel numero è versamenti *più* mercato insieme, mai
+uno dei due da solo. E ogni volta che logghi una decisione, si ricorda anche le altre opzioni
+che aveva scartato in quel momento: dopo abbastanza decisioni ti dice se avresti fatto
+meglio a scegliere qualcos'altro, o se è ancora troppo presto per saperlo.
 
 ## Numeri, non promesse
 
 | cosa | valore | dove |
 |---|---|---|
-| test automatici (tutti offline e deterministici) | **1046 passed**, 0 skipped, 0 xfail | [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) — KPI di ogni singolo test |
-| coverage di riga (`src/portfolio_copilot`) | **94,1 %** | idem, per modulo |
+| test automatici (tutti offline e deterministici) | **1092 passed**, 0 skipped, 0 xfail | [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) — KPI di ogni singolo test |
+| coverage di riga (`src/portfolio_copilot`) | **~94 %** | idem, per modulo |
 | lint / manifest | `ruff` pulito · `claude plugin validate --strict` ok su plugin, skill, agent | idem |
-| tool MCP esposti | **28** + 4 prompt | `docs/ARCHITECTURE.md` |
+| tool MCP esposti | **31** + 4 prompt | `docs/ARCHITECTURE.md` |
 | backtest reali (3 profili × 5/10 anni, dati Yahoo) | commissioni 0,79–0,84 % dei versamenti, cash inattivo 0 €, fuori banda 0–4 % dei mesi | [`docs/BACKTEST.md`](docs/BACKTEST.md) |
 | performance motori | parser 1000 righe 0,04 s · 1000 scenari di allocazione 0,01 s · backtest 240 mesi 0,004 s | idem |
 
@@ -118,7 +126,7 @@ investe tutti restando sotto il tetto di commissioni.
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh                 # se non hai uv
 git clone https://github.com/lodetomasi/portfolio-copilot && cd portfolio-copilot
-uv sync --extra dev && uv run pytest -q                          # 1046 passed
+uv sync --extra dev && uv run pytest -q                          # 1092 passed
 claude plugin marketplace add . && claude plugin install portfolio-copilot@portfolio-copilot
 ```
 

@@ -275,6 +275,29 @@ def test_buy_emitting_skills_invoke_red_team_before_buy_small():
         assert "red-team" in do_section, name
 
 
+def test_position_review_sell_step_passes_alternative_price_to_log_decision():
+    """Step 8's log_decision call for a SELL/REDUCE must pass alternative_price (the
+    chosen bucket's own price), otherwise decision_alpha()/opportunity_cost() always
+    report the sell as unmeasurable/blank -- SELL decisions would never accumulate into
+    personal_edge's mean alpha/hit-rate or review_decisions' opportunity verdict."""
+    text = (ROOT / "skills" / "position-review" / "SKILL.md").read_text(encoding="utf-8")
+    step8 = text.split("8. For a SELL", 1)[1]
+    step8 = step8.split("\n\n", 1)[0]  # just the step, not the rest of the doc
+    assert "alternative_price" in step8
+
+
+def test_position_review_sell_step_does_not_double_add_the_sold_ticker():
+    """opportunity_cost() already re-adds the sold symbol to the comparison pool
+    automatically and unconditionally for every SELL (portfolio/opportunity.py); step 8
+    must not instruct adding it a second time to `candidates`, which would double-count it
+    in chosen_rank and the aggregated regret stats."""
+    text = (ROOT / "skills" / "position-review" / "SKILL.md").read_text(encoding="utf-8")
+    step8 = text.split("8. For a SELL", 1)[1]
+    step8 = step8.split("\n\n", 1)[0]
+    assert "ticker` itself" not in step8
+    assert "plus one entry" not in step8
+
+
 PROVIDERS_DIR = ROOT / "src" / "portfolio_copilot" / "providers"
 
 

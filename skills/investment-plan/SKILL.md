@@ -53,22 +53,30 @@ Include every `warnings` item as one extra line.
 ## Mode: checkin
 
 1. Read `data/private/investment_plan.json` (if missing: "No plan saved — run the plan first").
-2. `parse_portfolio_export(path)`, `portfolio_risk(path)`; map holdings to plan buckets by
-   ISIN/name; anything unmapped is listed as "outside the plan".
-3. `allocate_cash(current_values, plan.targets, cash_eur=<ask: "cash available now?">,
+2. `list_portfolio_snapshots()` → remember the last date, if any, as `previous`.
+3. `save_portfolio_snapshot(path)` — parses the export, maps holdings to plan buckets and
+   freezes today as one dated snapshot (this month's memory for next time).
+4. `portfolio_risk(path)`, `map_holdings_to_targets(path)`; anything unmapped is "outside the plan".
+5. `allocate_cash(current_values, plan.targets, cash_eur=<ask: "cash available now?">,
    rebalance_band_abs=plan.rules.rebalance_band_abs)`.
-4. `review_decisions(min_days=90)`; if `decisions_measured >= 1`, also `personal_edge(
+6. If `previous` exists: `compare_snapshots(previous)` (newer defaults to the snapshot just
+   saved) → `total_change_eur`. This is contributions + market move combined — the diff
+   cannot split them; contributions are known instead from the plan itself.
+7. `review_decisions(min_days=90)`; if `decisions_measured >= 1`, also `personal_edge(
    min_days=90)` (overall mean alpha/hit-rate) and `decision_quality(decision_id)` on the
    most recent measured row → fold into one summary line. With 0 measured decisions, omit
-   the line entirely — never show a track record on no data.
-5. Append `{date, total_value, drift_by_bucket, orders}` to `history` and save.
+   the line entirely — never show a track record on no data. If the same call's
+   `opportunity.n_measured >= 1`, add one more line with `opportunity.verdict` verbatim (it
+   may say "not yet distinguishable from luck" — never soften or drop that wording).
+8. Append `{date, total_value, drift_by_bucket, orders}` to `history` and save.
 
 Answer (≤ 6 lines):
 ```
-As of <today>: portfolio <EUR>, contributions so far <EUR>.
+As of <today>: portfolio <EUR>. Since last check-in: <±EUR> = contributions + market, contributions from the plan | first check-in, nothing to compare yet.
 Drift: <bucket +x% / -y%> — <in band | out of band>.
 Do now: <BUY <bucket> <EUR> ... | nothing>. Fees ≈ <EUR>.
 Outside the plan: <holdings or none>.
 Track record: <n> measured decisions, alpha <+x%|-x%>, hit rate <x%>, quality <nn>/100 | not shown yet.
 Next: <contribute|review> on <date>.
 ```
+If `opportunity.n_measured >= 1`, add one more line with the verdict text verbatim.

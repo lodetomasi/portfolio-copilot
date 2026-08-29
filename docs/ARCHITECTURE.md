@@ -36,6 +36,8 @@ portfolio/backtest.py   (replay of the plan on past prices — not a forecast)
 portfolio/ledger.py     (decision ledger + shadow portfolio → decision alpha)
 portfolio/edge.py       (personal edge by category/theme)
 portfolio/quality.py    (decision-quality rubric, independent of outcome)
+portfolio/snapshots.py  (one dated holdings snapshot per check-in, for later diffs)
+portfolio/opportunity.py(regret vs. the whole ranking shown at decision time)
         │
         ▼
 server.py  (MCP tools + prompts only)  ──►  skills/  (rookie in → expert → rookie out)
@@ -66,6 +68,10 @@ SUGGESTED MANUAL ORDERS → the user → their broker
 | Discovery (Finviz screener) | done: 3 validated presets, tier C, re-scored before use | `providers/finviz.py` |
 | Investment plan + calendar + check-in | done | `portfolio/plan.py`, skill `investment-plan` |
 | Backtest of the plan rules | done (monthly replay, synthetic-path property tests) | `portfolio/backtest.py` |
+| Snapshot store (monthly holdings memory) | done: one dated snapshot per check-in (holdings, bucket, total_value, plan_targets); `diff_snapshots` reports value change per holding/bucket but never splits it into contributions vs market move on its own | `portfolio/snapshots.py`, tools `save_portfolio_snapshot`/`list_portfolio_snapshots`/`compare_snapshots` |
+| Opportunity-cost ledger | done: regret of the chosen decision against the *whole* ranking shown at decision time (`log_decision`'s `candidates`), not just the single recorded alternative; min-sample gated like every other engine here | `portfolio/opportunity.py`, surfaced in `review_decisions`'s `opportunity` section |
+| Decision calibration (V2) | not built: would compare this user's stated confidence against realized decision alpha (from `portfolio/ledger.py`) to see if confidence is over/under-calibrated. Prerequisite: enough measured decisions with a recorded `confidence` to bin by confidence level (same min-sample gate as `personal_edge`) | — |
+| Portfolio autopsy / attribution (V2) | not built: would decompose a period's `compare_snapshots` change into per-bucket/per-holding contribution using intra-period trades, not just start/end value. Prerequisite: a trade log (buy/sell dates and sizes) between two snapshots, which the ledger does not yet capture for buy sizing beyond `log_decision`'s `amount_eur` | — |
 
 ## Source tiers and fallback
 
@@ -96,7 +102,7 @@ respecting `robots.txt` (IR page crawler).
   `analytics/evidence.py` — multi-source agreement (VERIFIED/CONFLICT/SINGLE_SOURCE/MISSING).
 - `scoring/engine.py` — pure scoring on normalised snapshots.
 - `portfolio/` — `risk`, `exposure`, `thesis`, `auction`, `replacement`, `rebalance`, `plan`,
-  `backtest`, `ledger`, `edge`, `quality`, `mapping`, `orders`.
+  `backtest`, `ledger`, `edge`, `quality`, `mapping`, `orders`, `snapshots`, `opportunity`.
 - `server.py` — MCP tools and prompts only.
 
 ## Plugin layout (repo root = plugin root)
@@ -106,7 +112,7 @@ respecting `robots.txt` (IR page crawler).
 skills/<name>/SKILL.md ×7                     agents/red-team.md
 hooks/hooks.json, no-broker-access.sh, session-banner.sh
 config/portfolio.example.yaml, model_portfolios.yaml, exposure_graph.yaml
-data/private/ (git-ignored): investment_plan.json, decisions.jsonl, theses.json
+data/private/ (git-ignored): investment_plan.json, decisions.jsonl, theses.json, snapshots/*.json
 ```
 
 ## Security boundary

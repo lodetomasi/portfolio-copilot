@@ -39,8 +39,10 @@ tickers. Ask only for what is missing: "How much cash, and where is your export 
    downgrade to `WATCH`/`NO_BUY` and give the red team's reason instead. Never called for
    bucket-only orders or for `WATCH`/`NO_BUY`.
 5. `log_decision(symbol, action, reason, score, confidence, amount_eur, red_team=<verdict>,
-   category=<the bucket it fills, or the stock's dominant exposure theme>)` for every funded
-   order, so `personal_edge` can later group results by bucket/theme.
+   category=<the bucket it fills, or the stock's dominant exposure theme>, candidates=
+   capital_auction's `candidates_for_ledger` top 5 by utility)` for every funded order, so
+   `personal_edge` groups by bucket/theme and `review_decisions`'s `opportunity` section can
+   later measure regret against everything else the auction was ranking.
 
 ## Answer (≤ 6 lines)
 

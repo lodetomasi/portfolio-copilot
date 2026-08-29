@@ -107,11 +107,65 @@ def test_build_investment_plan_raises_tool_error_on_invalid_risk_tolerance():
         )
 
 
+def test_build_investment_plan_raises_tool_error_on_invalid_start_date():
+    """start = date.fromisoformat(start_date) (server.py) ran one line above the try block
+    meant to convert exactly this kind of input error, so a malformed start_date raised a
+    raw ValueError instead of reaching Claude as a ToolError."""
+    with pytest.raises(ToolError, match="Invalid isoformat string"):
+        server.build_investment_plan(
+            cash_now=1000.0,
+            monthly_contribution=100.0,
+            horizon_years=5.0,
+            risk_tolerance="medium",
+            start_date="not-a-date",
+        )
+
+
 def test_discover_stocks_raises_tool_error_on_unknown_preset():
     """discover_stocks calls FinvizProvider.screen() directly with no try/except, so an
     unknown preset's ValueError (providers/finviz.py:62) never reaches Claude."""
     with pytest.raises(ToolError, match="Unknown preset"):
         server.discover_stocks(preset="not_a_real_preset")
+
+
+def test_log_decision_raises_tool_error_on_replayed_identical_id(tmp_path, monkeypatch):
+    """record_decision now rejects a replayed id (finding 11); log_decision must translate
+    that ValueError into a ToolError like every other expected-failure path in this file,
+    not let it fall through as a raw, opaque UnexpectedToolError."""
+    monkeypatch.setenv("PORTFOLIO_COPILOT_HOME", str(tmp_path))
+    server.log_decision(symbol="MU", action="BUY", reason="r")
+    with pytest.raises(ToolError, match="already recorded"):
+        server.log_decision(symbol="MU", action="BUY", reason="r again")
+
+
+def _write_corrupted_ledger(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PORTFOLIO_COPILOT_HOME", str(tmp_path))
+    (tmp_path / "decisions.jsonl").write_text(
+        '{"id":"1","date":"2024-01-01","symbol":"MU","action":"BUY","reason":"t",'
+        '"price":100.0}\n{this is not valid json\n',
+        encoding="utf-8",
+    )
+
+
+def test_review_decisions_raises_tool_error_on_corrupted_ledger_line(tmp_path, monkeypatch):
+    """A single malformed decisions.jsonl line must not crash the whole tool with a raw
+    json.JSONDecodeError -- it must reach Claude as a ToolError like every other expected
+    failure in this file (CLAUDE.md rule 6: degrade and say so, never go silent/opaque)."""
+    _write_corrupted_ledger(tmp_path, monkeypatch)
+    with pytest.raises(ToolError):
+        server.review_decisions(min_days=0)
+
+
+def test_personal_edge_raises_tool_error_on_corrupted_ledger_line(tmp_path, monkeypatch):
+    _write_corrupted_ledger(tmp_path, monkeypatch)
+    with pytest.raises(ToolError):
+        server.personal_edge(min_days=0)
+
+
+def test_decision_quality_raises_tool_error_on_corrupted_ledger_line(tmp_path, monkeypatch):
+    _write_corrupted_ledger(tmp_path, monkeypatch)
+    with pytest.raises(ToolError):
+        server.decision_quality("1")
 
 
 def test_filing_sections_degrades_instead_of_crashing_on_malformed_sec_json(monkeypatch):
