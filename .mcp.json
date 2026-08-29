@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "portfolio-copilot": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "${CLAUDE_PLUGIN_ROOT:-.}",
+        "python",
+        "-m",
+        "portfolio_copilot.server"
+      ],
+      "env": {
+        "PORTFOLIO_COPILOT_HOME": "${CLAUDE_PLUGIN_ROOT:-.}/.portfolio-copilot"
+      }
+    }
+  }
+}

@@ -1,0 +1,206 @@
+# Hidden-exposure graph (V2, read-only reference data -- edit by hand, not generated).
+#
+# Curated mapping from an instrument's name/sector/industry to thematic "buckets" and the
+# shared macro/factor drivers behind them. Used by portfolio/exposure.py to reveal exposure
+# that isn't obvious from sector labels alone -- e.g. a "small cap world" ETF, a chip stock
+# and an AI-software fund can all lean on the same ai_capex driver even though they sit in
+# different sectors on paper.
+#
+# Schema per theme:
+#   keywords: case-insensitive substrings matched against "name sector industry" joined.
+#   drivers:  shared macro/factor drivers this theme is exposed to.
+# Both lists are required and non-empty (see portfolio/exposure.py::load_graph, which
+# validates this file and refuses to degrade silently on a malformed entry).
+#
+# An instrument matching no theme below is classified "unclassified" rather than guessed.
+# A leveraged instrument (asset_type "certificate" or |leverage| > 1) always additionally
+# carries "leveraged_certificates" (driver leverage_decay) on top of whatever underlying
+# theme its name/sector/industry matched.
+
+themes:
+  global_equity_core:
+    keywords:
+      - "all-world"
+      - "all world"
+      - "ftse all-world"
+      - "msci world"
+      - "s&p 500"
+      - "sp 500"
+      - "world index"
+      - "world equity"
+    drivers:
+      - equity_beta_global
+      - usd
+
+  small_cap:
+    keywords:
+      - "small cap"
+      - "small-cap"
+      - "smallcap"
+      - "russell 2000"
+    drivers:
+      - equity_beta_global
+      - small_cap_liquidity
+      - rates_eur
+
+  emerging_markets:
+    keywords:
+      - "emerging markets"
+      - "emerging market"
+      - "msci emerging"
+    drivers:
+      - china_demand
+      - em_fx
+      - usd
+
+  global_bonds:
+    keywords:
+      - "bond"
+      - "aggregate bond"
+      - "government bond"
+      - "treasury"
+      - "fixed income"
+      - "gilt"
+    drivers:
+      - rates_eur
+      - credit_spread
+
+  semiconductors:
+    keywords:
+      - "semiconductor"
+      - "chip"
+      - "nvidia"
+      - "amd"
+      - "asml"
+      - "tsmc"
+      - "taiwan semiconductor"
+      - "intel"
+      - "broadcom"
+      - "qualcomm"
+    drivers:
+      - semiconductor_cycle
+      - ai_capex
+      - china_demand
+
+  ai_software:
+    keywords:
+      - "artificial intelligence"
+      - "ai software"
+      - "machine learning"
+      - "palantir"
+      - "generative ai"
+    drivers:
+      - ai_capex
+      - rates_eur
+
+  defense_aerospace:
+    keywords:
+      - "defense"
+      - "defence"
+      - "aerospace"
+      - "lockheed"
+      - "raytheon"
+      - "rheinmetall"
+      - "leonardo"
+      - "thales"
+      - "northrop"
+      - "military"
+    drivers:
+      - us_defense_budget
+      - geopolitical_risk
+
+  biotech_pharma:
+    keywords:
+      - "biotech"
+      - "biotechnology"
+      - "pharma"
+      - "pharmaceutical"
+      - "genomics"
+      - "therapeutics"
+      - "biopharma"
+    drivers:
+      - biotech_binary_events
+      - rates_eur
+
+  robotics_automation:
+    keywords:
+      - "robot"
+      - "robotics"
+      - "automation"
+      - "industrial automation"
+    drivers:
+      - ai_capex
+      - semiconductor_cycle
+
+  gold_miners:
+    keywords:
+      - "gold"
+      - "gold miners"
+      - "gold mining"
+      - "newmont"
+      - "barrick"
+    drivers:
+      - gold_price
+      - usd
+
+  energy:
+    keywords:
+      - "energy"
+      - "oil"
+      - "petroleum"
+      - "oil & gas"
+      - "exxon"
+      - "shell"
+      - "totalenergies"
+    drivers:
+      - oil
+      - usd
+
+  banks_financials:
+    keywords:
+      - "bank"
+      - "banca"
+      - "financial"
+      - "financials"
+      - "insurance"
+      - "assicurazioni"
+      - "intesa"
+      - "unicredit"
+    drivers:
+      - bank_credit_cycle
+      - rates_eur
+
+  real_estate:
+    keywords:
+      - "real estate"
+      - "reit"
+      - "immobiliare"
+      - "property"
+    drivers:
+      - real_estate_cycle
+      - rates_eur
+
+  leveraged_certificates:
+    keywords:
+      - "certificate"
+      - "certificato"
+      - "leva fissa"
+      - "leveraged"
+      - "turbo"
+      - "5x"
+      - "4x"
+      - "3x"
+      - "2x"
+    drivers:
+      - leverage_decay
+
+  cash:
+    keywords:
+      - "cash"
+      - "liquidita"
+      - "liquidità"
+      - "money market"
+      - "deposit"
+      - "conto deposito"
+    drivers:
+      - cash_rate

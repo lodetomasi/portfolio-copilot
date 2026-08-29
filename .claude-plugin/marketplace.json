@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "portfolio-copilot",
+  "description": "Local marketplace for the Portfolio Copilot plugin.",
+  "owner": {
+    "name": "Lorenzo De Tomasi"
+  },
+  "plugins": [
+    {
+      "name": "portfolio-copilot",
+      "description": "Investment plan with calendar, portfolio review, cash deployment, fee-aware rebalancing and stock picking on a LOCAL broker XLSX/CSV export. No broker login, no broker access, no order execution.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Lorenzo De Tomasi"
+      },
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

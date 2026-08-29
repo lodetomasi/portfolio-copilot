@@ -1,0 +1,38 @@
+base_currency: EUR
+
+fees:
+  # Modifica con il profilo commissionale reale del tuo broker.
+  default_fixed_fee_eur: 2.95
+  variable_fee_pct: 0.0
+  max_fee_ratio: 0.01
+
+rebalancing:
+  band_abs: 0.03
+  cash_flow_first: true
+  allow_sells: true
+  min_cash_eur: 0
+
+risk_limits:
+  max_single_stock_weight: 0.05
+  max_growth_stock_weight: 0.04
+  max_high_risk_stock_weight: 0.02
+  max_sector_weight: 0.25
+  max_speculative_bucket_weight: 0.15
+  max_leveraged_nominal_weight: 0.10
+
+scoring:
+  growth: 20
+  quality: 20
+  valuation: 15
+  momentum: 15
+  revisions: 10
+  catalysts: 10
+  risk: 10
+
+targets:
+  # EXAMPLE ONLY — replace with your own. Bucket names MUST match the instrument buckets in
+  # config/model_portfolios.yaml so holdings can be mapped automatically (map_holdings_to_targets).
+  global_equity: 0.70
+  small_cap: 0.10
+  emerging_markets: 0.05
+  global_bonds_hedged: 0.15

@@ -1,0 +1,110 @@
+{
+ "cik": 1234567,
+ "entityName": "ACME ROBOTICS INC",
+ "facts": {
+  "us-gaap": {
+   "Revenues": {
+    "units": {
+     "USD": [
+      {
+       "fy": 2024,
+       "fp": "FY",
+       "form": "10-K",
+       "val": 1000000,
+       "end": "2024-12-31",
+       "filed": "2025-03-01"
+      },
+      {
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "val": 1500000,
+       "end": "2025-12-31",
+       "filed": "2026-03-01"
+      },
+      {
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "val": 990000,
+       "end": "2024-12-31",
+       "filed": "2026-03-01"
+      }
+     ]
+    }
+   },
+   "NetIncomeLoss": {
+    "units": {
+     "USD": [
+      {
+       "fy": 2024,
+       "fp": "FY",
+       "form": "10-K",
+       "val": -400000,
+       "end": "2024-12-31",
+       "filed": "2025-03-01"
+      },
+      {
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "val": -150000,
+       "end": "2025-12-31",
+       "filed": "2026-03-01"
+      }
+     ]
+    }
+   },
+   "NetCashProvidedByUsedInOperatingActivities": {
+    "units": {
+     "USD": [
+      {
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "val": -100000,
+       "end": "2025-12-31",
+       "filed": "2026-03-01"
+      }
+     ]
+    }
+   },
+   "PaymentsToAcquirePropertyPlantAndEquipment": {
+    "units": {
+     "USD": [
+      {
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "val": 50000,
+       "end": "2025-12-31",
+       "filed": "2026-03-01"
+      }
+     ]
+    }
+   },
+   "StockholdersEquity": {
+    "units": {
+     "USD": [
+      {
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "val": 2000000,
+       "end": "2025-12-31",
+       "filed": "2026-03-01"
+      },
+      {
+       "fy": 2025,
+       "fp": "Q3",
+       "form": "10-Q",
+       "val": 2100000,
+       "end": "2025-09-30",
+       "filed": "2025-11-01"
+      }
+     ]
+    }
+   }
+  }
+ }
+}

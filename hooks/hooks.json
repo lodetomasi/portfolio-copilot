@@ -1,0 +1,29 @@
+{
+  "description": "portfolio-copilot guardrails: no broker login/credential surfaces; session boundary banner.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact|fork",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-banner.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|WebFetch|Read|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/no-broker-access.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

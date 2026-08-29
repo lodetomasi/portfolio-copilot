@@ -1,0 +1,66 @@
+[
+  {
+    "name": "Vanguard FTSE All-World UCITS ETF (USD) Acc",
+    "market_value": 4000.0,
+    "sector": null,
+    "industry": null,
+    "asset_type": "etf",
+    "leverage": 1.0
+  },
+  {
+    "name": "iShares MSCI World Small Cap UCITS ETF USD (Acc)",
+    "market_value": 1000.0,
+    "sector": null,
+    "industry": null,
+    "asset_type": "etf",
+    "leverage": 1.0
+  },
+  {
+    "name": "Vanguard FTSE Emerging Markets UCITS ETF (USD) Acc",
+    "market_value": 500.0,
+    "sector": null,
+    "industry": null,
+    "asset_type": "etf",
+    "leverage": 1.0
+  },
+  {
+    "name": "iShares Core Global Aggregate Bond UCITS ETF EUR Hedged (Acc)",
+    "market_value": 500.0,
+    "sector": null,
+    "industry": null,
+    "asset_type": "bond",
+    "leverage": 1.0
+  },
+  {
+    "name": "NVIDIA Corporation",
+    "market_value": 800.0,
+    "sector": "Technology",
+    "industry": "Semiconductors",
+    "asset_type": "equity",
+    "leverage": 1.0
+  },
+  {
+    "name": "Leonardo SpA",
+    "market_value": 400.0,
+    "sector": "Industrials",
+    "industry": "Aerospace & Defense",
+    "asset_type": "equity",
+    "leverage": 1.0
+  },
+  {
+    "name": "LEVA FISSA EXAMPLE LONG 5X BANK CERTIFICATE",
+    "market_value": 200.0,
+    "sector": "Financials",
+    "industry": "Banks",
+    "asset_type": "certificate",
+    "leverage": 5.0
+  },
+  {
+    "name": "EUR Cash",
+    "market_value": 600.0,
+    "sector": null,
+    "industry": null,
+    "asset_type": "cash",
+    "leverage": 1.0
+  }
+]

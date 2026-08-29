@@ -1,0 +1,28 @@
+﻿Portafoglio
+Dossier
+00000000
+Strumenti
+Tutti
+Valuta
+Tutte
+Valorizzazione EUR
+4.147,02
+Var EUR
++158,52
+Var %
++3,97%
+
+Titolo;Strumento;Valuta;Quantità;"P.zo medio
+di carico";"P.zo di
+mercato";"Val di mercato €
+(Margine)";Var €;Var %
+"AB
+ACME BIOTECH";Azione;EUR;30;2,1000;1,5000;45,00;-18,00;-28,57%
+"FR
+FOO ROBOTICS ADR";Azione;USD;40;6,25000;5,80;199,52;-15,48;-7,20%
+iShares Core Global Aggregate Bond UCITS ETF EUR Hedged (Acc);ETF;EUR;50;5,0000;4,9500;247,50;-2,50;-1,00%
+Vanguard FTSE All-World UCITS ETF (USD) Acc;ETF;EUR;20;150,00000;160,00;3.200,00;+200,00;+6,67%
+Vanguard FTSE Emerging Markets UCITS ETF (USD) Acc *;ETF;EUR;2;70,00;72,50;145,00;+5,00;+3,57%
+LEVA FISSA EXAMPLE LONG 5X;Certificate;EUR;10;20,00;22,00;220,00;+20,00;+10,00%
+LEVA FISSA OTHER LONG 3X;Certificate;EUR;15;8,00;6,00;90,00;-30,00;-25,00%
+Totale;;;;;;4.147,02;+158,52;+3,97%

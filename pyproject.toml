@@ -1,0 +1,57 @@
+[project]
+name = "portfolio-copilot"
+version = "0.1.0"
+description = "Local, broker-agnostic Claude Code MCP for portfolio analysis, stock discovery and rebalancing"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "mcp[cli]>=2.0.0",
+  "pandas>=2.2.0",
+  "numpy>=2.0.0",
+  "scipy>=1.13.0",
+  "pydantic>=2.10.0",
+  "pydantic-settings>=2.6.0",
+  "yfinance>=0.2.60",
+  "openpyxl>=3.1.5",
+  "httpx>=0.28.0",
+  "PyYAML>=6.0.2",
+  "typer>=0.15.0",
+  "rich>=13.9.0",
+  "finvizfinance>=1.4.0",
+  "yahooquery>=2.4.1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.0",
+  "pytest-asyncio>=0.25.0",
+  "ruff>=0.9.0"
+]
+
+[project.scripts]
+portfolio-copilot = "portfolio_copilot.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/portfolio_copilot"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+markers = [
+  "network: tests that require internet access"
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# report generators build long markdown table rows on purpose
+"scripts/*" = ["E501"]

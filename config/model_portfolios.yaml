@@ -1,0 +1,40 @@
+# Model portfolios used by build_investment_plan. EXAMPLES: bucket weights are allocation
+# choices, not forecasts. Instrument identifiers are examples to VERIFY on your broker
+# (ISIN/ticker) before trading; the copilot never trades.
+profiles:
+  cautious:
+    description: "Capital preservation first. Horizon < 3 years or low tolerance for drawdowns."
+    targets:
+      global_equity: 0.40
+      global_bonds_hedged: 0.60
+  balanced:
+    description: "Growth with a bond cushion. Horizon 3-8 years or medium tolerance."
+    targets:
+      global_equity: 0.60
+      small_cap: 0.05
+      emerging_markets: 0.05
+      global_bonds_hedged: 0.30
+  growth:
+    description: "Equity-heavy. Horizon >= 8 years and you would hold or buy through a -30% year."
+    targets:
+      global_equity: 0.80
+      small_cap: 0.10
+      emerging_markets: 0.10
+
+instruments:
+  global_equity:
+    name: "Vanguard FTSE All-World UCITS ETF (USD) Acc"
+    isin: "IE00BK5BQT80"
+    yf_ticker: "VWCE.MI"
+  small_cap:
+    name: "iShares MSCI World Small Cap UCITS ETF USD (Acc)"
+    isin: "IE00BF4RFH31"
+    yf_ticker: "IUSN.DE"
+  emerging_markets:
+    name: "Vanguard FTSE Emerging Markets UCITS ETF (USD) Acc"
+    isin: "IE00BK5BR733"
+    yf_ticker: "VFEA.MI"
+  global_bonds_hedged:
+    name: "iShares Core Global Aggregate Bond UCITS ETF EUR Hedged (Acc)"
+    isin: "IE00BDBRDM35"
+    yf_ticker: "AGGH.MI"

@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "arial",
+        "files": [
+          "tests/fixtures/sec_10k_sample.html"
+        ],
+        "createdAt": "2026-08-29T00:43:41.650Z",
+        "reason": "Claude triage: synthetic SEC 10-K HTML test fixture for section extraction, not a UI; font choice is irrelevant to the test"
+      }
+    ]
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "version": "2.0",
+  "class": "dataset",
+  "label": "Unemployment by sex and age - monthly data",
+  "source": "ESTAT",
+  "updated": "2026-08-15T11:00:00+0200",
+  "value": {
+    "0": 6.4,
+    "1": 6.3,
+    "2": 6.3,
+    "3": 6.2,
+    "4": 6.2,
+    "5": 6.1,
+    "6": 6.1,
+    "7": 6.2,
+    "8": 6.2,
+    "9": 6.1,
+    "10": 6.0,
+    "11": 6.0,
+    "12": 6.1
+  },
+  "dimension": {
+    "freq": {
+      "label": "Time frequency",
+      "category": { "index": { "M": 0 }, "label": { "M": "Monthly" } }
+    },
+    "s_adj": {
+      "label": "Seasonal adjustment",
+      "category": { "index": { "SA": 0 }, "label": { "SA": "Seasonally adjusted data" } }
+    },
+    "age": {
+      "label": "Age class",
+      "category": { "index": { "TOTAL": 0 }, "label": { "TOTAL": "Total" } }
+    },
+    "sex": {
+      "label": "Sex",
+      "category": { "index": { "T": 0 }, "label": { "T": "Total" } }
+    },
+    "unit": {
+      "label": "Unit of measure",
+      "category": {
+        "index": { "PC_ACT": 0 },
+        "label": { "PC_ACT": "Percentage of active population" }
+      }
+    },
+    "geo": {
+      "label": "Geopolitical entity (reporting)",
+      "category": {
+        "index": { "EA20": 0 },
+        "label": { "EA20": "Euro area - 20 countries (from 2023)" }
+      }
+    },
+    "time": {
+      "label": "Time",
+      "category": {
+        "index": {
+          "2025-07": 0,
+          "2025-08": 1,
+          "2025-09": 2,
+          "2025-10": 3,
+          "2025-11": 4,
+          "2025-12": 5,
+          "2026-01": 6,
+          "2026-02": 7,
+          "2026-03": 8,
+          "2026-04": 9,
+          "2026-05": 10,
+          "2026-06": 11,
+          "2026-07": 12
+        },
+        "label": {
+          "2025-07": "2025-07",
+          "2025-08": "2025-08",
+          "2025-09": "2025-09",
+          "2025-10": "2025-10",
+          "2025-11": "2025-11",
+          "2025-12": "2025-12",
+          "2026-01": "2026-01",
+          "2026-02": "2026-02",
+          "2026-03": "2026-03",
+          "2026-04": "2026-04",
+          "2026-05": "2026-05",
+          "2026-06": "2026-06",
+          "2026-07": "2026-07"
+        }
+      }
+    }
+  },
+  "id": ["freq", "s_adj", "age", "sex", "unit", "geo", "time"],
+  "size": [1, 1, 1, 1, 1, 1, 13]
+}

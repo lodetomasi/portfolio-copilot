@@ -1,0 +1,10 @@
+# Synthetic robots.txt for offline tests -- not a real company's file.
+User-agent: *
+Disallow: /admin
+Disallow: /checkout
+Allow: /
+
+User-agent: BadBot
+Disallow: /
+
+Sitemap: https://example.com/sitemap.xml
