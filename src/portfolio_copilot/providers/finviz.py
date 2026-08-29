@@ -50,6 +50,8 @@ SIZE_BUCKETS: dict[str, str] = {
     "large": "Large ($10bln to $200bln)",
     "mid": "Mid ($2bln to $10bln)",
     "small": "Small ($300mln to $2bln)",
+    "micro": "Micro ($50mln to $300mln)",
+    "nano": "Nano (under $50mln)",
 }
 
 # Exact finvizfinance order names (finvizfinance.constants.order_dict) used to rank each
@@ -144,7 +146,7 @@ class FinvizProvider:
     def discover_universe(
         self,
         styles: tuple[str, ...] = ("quality_growth", "quality_value", "momentum"),
-        sizes: tuple[str, ...] = ("mega", "large", "mid", "small"),
+        sizes: tuple[str, ...] = ("mega", "large", "mid", "small", "micro", "nano"),
         per_screen: int = 15,
         screener_factory=None,
     ) -> dict:

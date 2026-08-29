@@ -1,19 +1,19 @@
 # Test report
 
-Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offline and deterministic.
+Generated 2026-08-29 15:28 UTC by `scripts/test_report.py`. Every test is offline and deterministic.
 
 ## Gates
 
 | gate | result |
 |---|---|
-| pytest | 1 failed, 1361 passed in 18.23s |
-| tests total / passed / failed+error / xfail / skipped | 1362 / 1361 / 1 / 0 / 0 |
-| total test time | 15.45 s |
+| pytest | 1 failed, 1508 passed in 15.79s |
+| tests total / passed / failed+error / xfail / skipped | 1509 / 1508 / 1 / 0 / 0 |
+| total test time | 13.10 s |
 | ruff check . | clean |
 | claude plugin validate --strict . | pass |
 | claude plugin validate --strict skills | pass |
 | claude plugin validate --strict agents | pass |
-| line coverage (src/portfolio_copilot) | 94.7% |
+| line coverage (src/portfolio_copilot) | 94.5% |
 
 ## Coverage per module
 
@@ -24,6 +24,8 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | analytics/evidence.py | 102 | 5 | 95% |
 | analytics/merge.py | 46 | 1 | 98% |
 | analytics/metrics.py | 39 | 0 | 100% |
+| brokers/__init__.py | 1 | 0 | 100% |
+| brokers/etoro.py | 302 | 29 | 90% |
 | cli.py | 24 | 4 | 83% |
 | models.py | 123 | 0 | 100% |
 | parsers/__init__.py | 0 | 0 | 100% |
@@ -33,8 +35,9 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | portfolio/backtest.py | 48 | 0 | 100% |
 | portfolio/config.py | 26 | 0 | 100% |
 | portfolio/edge.py | 45 | 0 | 100% |
+| portfolio/execution.py | 183 | 9 | 95% |
 | portfolio/exposure.py | 112 | 6 | 95% |
-| portfolio/ledger.py | 115 | 0 | 100% |
+| portfolio/ledger.py | 118 | 0 | 100% |
 | portfolio/mapping.py | 86 | 0 | 100% |
 | portfolio/opportunity.py | 101 | 2 | 98% |
 | portfolio/orders.py | 6 | 0 | 100% |
@@ -45,8 +48,11 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | portfolio/rebalance.py | 77 | 4 | 95% |
 | portfolio/replacement.py | 92 | 4 | 96% |
 | portfolio/risk.py | 18 | 0 | 100% |
+| portfolio/risk_profile.py | 108 | 3 | 97% |
 | portfolio/snapshots.py | 141 | 10 | 93% |
+| portfolio/sources.py | 61 | 2 | 97% |
 | portfolio/thesis.py | 118 | 1 | 99% |
+| portfolio/venues.py | 27 | 0 | 100% |
 | providers/__init__.py | 0 | 0 | 100% |
 | providers/base.py | 6 | 6 | 0% |
 | providers/cache.py | 21 | 0 | 100% |
@@ -73,16 +79,16 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 
 | test | seconds |
 |---|---:|
-| test_server_edge_quality::test_analyze_stock_evidence_uses_pre_override_snapshot_for_the_cross_check | 5.460 |
-| test_server_capital_auction::test_negative_holding_value_never_crashes_the_auction | 3.525 |
+| test_server_edge_quality::test_analyze_stock_evidence_uses_pre_override_snapshot_for_the_cross_check | 3.940 |
 | test_server_picker::test_resolve_isins_does_not_leak_stale_errors_from_an_unrelated_prior_call | 2.507 |
-| test_server_tools::test_tools_list_over_stdio_includes_every_new_tool | 0.649 |
-| test_server_tools::test_tools_list_over_stdio_still_includes_every_pre_existing_tool | 0.639 |
-| test_cli_and_orders::test_cli_help_lists_commands | 0.263 |
+| test_server_capital_auction::test_negative_holding_value_never_crashes_the_auction | 2.505 |
+| test_server_tools::test_tools_list_over_stdio_includes_every_new_tool | 0.690 |
+| test_server_tools::test_tools_list_over_stdio_still_includes_every_pre_existing_tool | 0.667 |
+| test_cli_and_orders::test_cli_help_lists_commands | 0.267 |
+| test_hook_etoro_allowlist::test_basic_auth_and_bearer_on_command_line_are_still_denied | 0.079 |
 | test_hook_etoro_allowlist::test_header_names_and_client_lib_in_docs_are_not_credentials | 0.079 |
-| test_hook_etoro_allowlist::test_basic_auth_and_bearer_on_command_line_are_still_denied | 0.078 |
-| test_edge_hooks_skills::test_guard_processes_one_megabyte_input_quickly | 0.076 |
-| test_plugin::test_guard_denies_url_with_userinfo_credentials | 0.044 |
+| test_edge_hooks_skills::test_guard_processes_one_megabyte_input_quickly | 0.071 |
+| test_plugin::test_guard_denies_additional_login_surface_paths[https://mybroker.example.com/accedi] | 0.055 |
 
 ## Every test
 
@@ -140,7 +146,7 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 
 | test | status | seconds | note |
 |---|---|---:|---|
-| test_cli_help_lists_commands | ✅ | 0.263 |  |
+| test_cli_help_lists_commands | ✅ | 0.267 |  |
 | test_cli_parse_missing_file_fails_loudly | ✅ | 0.001 |  |
 | test_cli_parse_prints_normalized_portfolio_json | ✅ | 0.016 |  |
 | test_cli_risk_prints_concentration_and_leverage | ✅ | 0.005 |  |
@@ -278,7 +284,7 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_property_every_order_fee_matches_value_times_fee_ratio_within_one_cent[23] | ✅ | 0.000 |  |
 | test_property_every_order_fee_matches_value_times_fee_ratio_within_one_cent[24] | ✅ | 0.000 |  |
 | test_property_every_order_fee_matches_value_times_fee_ratio_within_one_cent[25] | ✅ | 0.000 |  |
-| test_property_every_order_fee_matches_value_times_fee_ratio_within_one_cent[26] | ✅ | 0.001 |  |
+| test_property_every_order_fee_matches_value_times_fee_ratio_within_one_cent[26] | ✅ | 0.000 |  |
 | test_property_every_order_fee_matches_value_times_fee_ratio_within_one_cent[27] | ✅ | 0.000 |  |
 | test_property_every_order_fee_matches_value_times_fee_ratio_within_one_cent[28] | ✅ | 0.000 |  |
 | test_property_every_order_fee_matches_value_times_fee_ratio_within_one_cent[29] | ✅ | 0.000 |  |
@@ -494,7 +500,7 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_property_top_up_never_exceeds_target_plus_band[38] | ✅ | 0.000 |  |
 | test_property_top_up_never_exceeds_target_plus_band[39] | ✅ | 0.000 |  |
 | test_property_top_up_never_exceeds_target_plus_band[3] | ✅ | 0.000 |  |
-| test_property_top_up_never_exceeds_target_plus_band[40] | ✅ | 0.000 |  |
+| test_property_top_up_never_exceeds_target_plus_band[40] | ✅ | 0.001 |  |
 | test_property_top_up_never_exceeds_target_plus_band[41] | ✅ | 0.000 |  |
 | test_property_top_up_never_exceeds_target_plus_band[42] | ✅ | 0.000 |  |
 | test_property_top_up_never_exceeds_target_plus_band[43] | ✅ | 0.000 |  |
@@ -569,7 +575,7 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 
 | test | status | seconds | note |
 |---|---|---:|---|
-| test_every_backticked_tool_call_in_skill_md_names_a_real_mcp_tool[deploy-cash] | ✅ | 0.001 |  |
+| test_every_backticked_tool_call_in_skill_md_names_a_real_mcp_tool[deploy-cash] | ✅ | 0.000 |  |
 | test_every_backticked_tool_call_in_skill_md_names_a_real_mcp_tool[investment-plan] | ✅ | 0.000 |  |
 | test_every_backticked_tool_call_in_skill_md_names_a_real_mcp_tool[portfolio-review] | ✅ | 0.000 |  |
 | test_every_backticked_tool_call_in_skill_md_names_a_real_mcp_tool[position-review] | ✅ | 0.000 |  |
@@ -584,17 +590,17 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_every_slash_command_reference_in_skill_md_points_to_an_existing_skill[start] | ✅ | 0.000 |  |
 | test_every_slash_command_reference_in_skill_md_points_to_an_existing_skill[stock-picker] | ✅ | 0.000 |  |
 | test_guard_allows_docs_write_naming_a_credential_shaped_env_var_in_a_code_fence | ✅ | 0.039 |  |
-| test_guard_allows_grep_for_a_bare_credential_shaped_word_in_source | ✅ | 0.036 |  |
-| test_guard_allows_webfetch_of_a_public_doc_whose_name_merely_contains_auth | ✅ | 0.038 |  |
-| test_guard_denies_accedi_path | ✅ | 0.040 |  |
-| test_guard_denies_curl_carrying_an_authorization_basic_header | ✅ | 0.036 |  |
-| test_guard_denies_signon_path | ✅ | 0.038 |  |
+| test_guard_allows_grep_for_a_bare_credential_shaped_word_in_source | ✅ | 0.037 |  |
+| test_guard_allows_webfetch_of_a_public_doc_whose_name_merely_contains_auth | ✅ | 0.040 |  |
+| test_guard_denies_accedi_path | ✅ | 0.041 |  |
+| test_guard_denies_curl_carrying_an_authorization_basic_header | ✅ | 0.040 |  |
+| test_guard_denies_signon_path | ✅ | 0.040 |  |
 | test_guard_denies_url_with_inline_userinfo_credentials | ✅ | 0.039 |  |
-| test_guard_processes_one_megabyte_input_quickly | ✅ | 0.076 |  |
+| test_guard_processes_one_megabyte_input_quickly | ✅ | 0.071 |  |
 | test_guard_tolerates_empty_stdin | ✅ | 0.040 |  |
-| test_guard_tolerates_null_tool_input | ✅ | 0.042 |  |
+| test_guard_tolerates_null_tool_input | ✅ | 0.039 |  |
 | test_plugin_marketplace_and_pyproject_versions_all_agree | ✅ | 0.001 |  |
-| test_session_banner_exits_zero_and_names_every_skill | ✅ | 0.010 |  |
+| test_session_banner_exits_zero_and_names_every_skill | ✅ | 0.009 |  |
 | test_tool_name_regex_extraction_matches_the_live_server_module | ✅ | 0.000 |  |
 
 ### test_edge_ledger_providers — 26 tests, 0.01 s
@@ -633,29 +639,29 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test | status | seconds | note |
 |---|---|---:|---|
 | test_blank_optional_cells_yield_none_not_zero_or_crash | ✅ | 0.003 |  |
-| test_completely_empty_file_raises_clear_error | ✅ | 0.002 |  |
+| test_completely_empty_file_raises_clear_error | ✅ | 0.001 |  |
 | test_dash_placeholder_numeric_cell_yields_none | ✅ | 0.002 |  |
 | test_duplicate_instrument_names_are_kept_as_separate_holdings | ✅ | 0.002 |  |
 | test_header_only_file_returns_empty_portfolio_not_error | ✅ | 0.001 |  |
 | test_header_spread_over_two_physical_rows | ✅ | 0.002 |  |
 | test_nd_placeholder_numeric_cell_yields_none | ✅ | 0.002 |  |
 | test_parse_real_xlsx_with_multiline_headers_preamble_and_total | ✅ | 0.014 |  |
-| test_parses_500_rows_within_two_seconds | ✅ | 0.023 |  |
+| test_parses_500_rows_within_two_seconds | ✅ | 0.022 |  |
 | test_single_line_name_resembling_a_ticker_prefix_is_not_split | ✅ | 0.002 |  |
 | test_us_format_market_value_row_is_dropped_not_corrupted | ✅ | 0.002 |  |
 | test_us_format_number_is_not_fabricated_into_a_wrong_value | ✅ | 0.000 |  |
 | test_usd_instrument_currency_with_broker_eur_values_no_conversion | ✅ | 0.002 |  |
 
-### test_edge_plan_backtest — 22 tests, 0.04 s
+### test_edge_plan_backtest — 22 tests, 0.05 s
 
 | test | status | seconds | note |
 |---|---|---:|---|
-| test_backtest_accounting_identity_holds_for_random_target_mixes | ✅ | 0.007 |  |
+| test_backtest_accounting_identity_holds_for_random_target_mixes | ✅ | 0.008 |  |
 | test_backtest_contribution_every_months_larger_than_available_history | ✅ | 0.001 |  |
 | test_backtest_flat_then_crash_then_recovery_reports_exact_drawdown | ✅ | 0.001 |  |
 | test_backtest_low_priced_bucket_stays_numerically_sane | ✅ | 0.001 |  |
 | test_backtest_never_sells_implied_units_are_non_decreasing_through_crash_and_recovery | ✅ | 0.009 |  |
-| test_backtest_unsorted_index_gives_same_result_as_default_index | ✅ | 0.001 |  |
+| test_backtest_unsorted_index_gives_same_result_as_default_index | ✅ | 0.002 |  |
 | test_backtest_zero_cash_zero_contribution_drawdown_is_none_not_nan | ✅ | 0.001 |  |
 | test_backtest_zero_initial_cash_and_zero_contribution_places_no_orders | ✅ | 0.001 |  |
 | test_build_calendar_review_every_one_flags_review_or_annual_every_month | ✅ | 0.000 |  |
@@ -663,13 +669,13 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_build_calendar_start_date_jan31_rolls_into_next_year | ✅ | 0.000 |  |
 | test_build_calendar_start_date_leap_day_clamps_and_rolls_into_next_year | ✅ | 0.000 |  |
 | test_build_calendar_zero_months_returns_no_events | ✅ | 0.000 |  |
-| test_build_plan_calendar_months_zero_produces_empty_calendar | ✅ | 0.003 |  |
-| test_build_plan_calendar_survives_month_end_start_dates_and_review_cadences[1-start_date_0] | ✅ | 0.003 |  |
-| test_build_plan_calendar_survives_month_end_start_dates_and_review_cadences[1-start_date_1] | ✅ | 0.003 |  |
-| test_build_plan_calendar_survives_month_end_start_dates_and_review_cadences[12-start_date_0] | ✅ | 0.003 |  |
-| test_build_plan_calendar_survives_month_end_start_dates_and_review_cadences[12-start_date_1] | ✅ | 0.003 |  |
-| test_build_plan_half_year_horizon_with_huge_monthly_contribution_invests_every_month | ✅ | 0.003 |  |
-| test_build_plan_half_year_horizon_with_tiny_monthly_contribution_warns_and_never_invents | ✅ | 0.003 |  |
+| test_build_plan_calendar_months_zero_produces_empty_calendar | ✅ | 0.004 |  |
+| test_build_plan_calendar_survives_month_end_start_dates_and_review_cadences[1-start_date_0] | ✅ | 0.004 |  |
+| test_build_plan_calendar_survives_month_end_start_dates_and_review_cadences[1-start_date_1] | ✅ | 0.004 |  |
+| test_build_plan_calendar_survives_month_end_start_dates_and_review_cadences[12-start_date_0] | ✅ | 0.004 |  |
+| test_build_plan_calendar_survives_month_end_start_dates_and_review_cadences[12-start_date_1] | ✅ | 0.004 |  |
+| test_build_plan_half_year_horizon_with_huge_monthly_contribution_invests_every_month | ✅ | 0.004 |  |
+| test_build_plan_half_year_horizon_with_tiny_monthly_contribution_warns_and_never_invents | ✅ | 0.004 |  |
 | test_contribution_cadence_handles_extreme_monthly_amounts[1000000.0-1] | ✅ | 0.000 |  |
 | test_contribution_cadence_handles_extreme_monthly_amounts[1e-06-12] | ✅ | 0.000 |  |
 
@@ -726,7 +732,7 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test | status | seconds | note |
 |---|---|---:|---|
 | test_all_fields_none_snapshot_scores_50_confidence_is_floored_and_warns | ✅ | 0.000 |  |
-| test_annualized_volatility_on_constant_series_is_zero_not_none | ✅ | 0.000 |  |
+| test_annualized_volatility_on_constant_series_is_zero_not_none | ✅ | 0.001 |  |
 | test_annualized_volatility_on_empty_series_returns_none | ✅ | 0.000 |  |
 | test_concentration_on_empty_weights_returns_all_zero | ✅ | 0.000 |  |
 | test_extreme_magnitude_inputs_clamp_to_valid_bounds | ✅ | 0.000 |  |
@@ -740,6 +746,50 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_pct_return_on_empty_and_single_element_series_returns_none | ✅ | 0.000 |  |
 | test_provider_f_converts_nan_and_inf_to_none | ✅ | 0.000 |  |
 | test_score_snapshot_is_pure_and_json_reproducible | ✅ | 0.000 |  |
+
+### test_etoro_client — 39 tests, 0.02 s
+
+| test | status | seconds | note |
+|---|---|---:|---|
+| test_429_retries_once_after_retry_after_then_succeeds | ✅ | 0.000 |  |
+| test_429_twice_raises_rate_limited_with_retry_after | ✅ | 0.001 |  |
+| test_account_normalisation_missing_equity_stays_none | ✅ | 0.000 |  |
+| test_cancel_order_is_not_available_and_makes_no_request | ✅ | 0.000 |  |
+| test_close_position_normalisation | ✅ | 0.000 |  |
+| test_credentials_repr_and_str_redact_both_keys | ✅ | 0.000 |  |
+| test_demo_401_message_mentions_other_environment | ✅ | 0.000 |  |
+| test_demo_vs_real_path_selection[demo-/api/v1/trading/info/demo/pnl] | ✅ | 0.001 |  |
+| test_demo_vs_real_path_selection[real-/api/v1/trading/info/real/pnl] | ✅ | 0.000 |  |
+| test_eligibility_normalisation | ✅ | 0.000 |  |
+| test_error_message_never_leaks_credentials | ✅ | 0.000 |  |
+| test_error_status_maps_to_expected_exception_type[400-KYC verification required before trading-demo-KycRequired] | ✅ | 0.000 |  |
+| test_error_status_maps_to_expected_exception_type[400-insufficient funds for this order-demo-InsufficientFunds] | ✅ | 0.001 |  |
+| test_error_status_maps_to_expected_exception_type[400-some other validation problem-demo-EToroError] | ✅ | 0.001 |  |
+| test_error_status_maps_to_expected_exception_type[400-the market is currently closed-demo-MarketClosed] | ✅ | 0.001 |  |
+| test_error_status_maps_to_expected_exception_type[401-invalid key-demo-NotConfigured] | ✅ | 0.001 |  |
+| test_error_status_maps_to_expected_exception_type[403-forbidden-real-NotConfigured] | ✅ | 0.001 |  |
+| test_error_status_maps_to_expected_exception_type[500-internal server error-demo-Unavailable] | ✅ | 0.001 |  |
+| test_headers_present_and_request_id_unique_per_call | ✅ | 0.002 |  |
+| test_load_credentials_env_vars_take_precedence | ✅ | 0.001 |  |
+| test_load_credentials_falls_back_to_file | ✅ | 0.001 |  |
+| test_load_credentials_returns_none_on_partial_pair | ✅ | 0.001 |  |
+| test_load_credentials_returns_none_when_absent | ✅ | 0.001 |  |
+| test_not_configured_when_credentials_absent_never_calls_network | ✅ | 0.000 |  |
+| test_open_market_order_body_and_response | ✅ | 0.000 |  |
+| test_open_market_order_rejects_invalid_side | ✅ | 0.000 |  |
+| test_open_market_order_requires_amount_or_units | ✅ | 0.000 |  |
+| test_open_market_order_units_takes_precedence_over_amount | ✅ | 0.000 |  |
+| test_order_lookup_normalises_status | ✅ | 0.000 |  |
+| test_orders_groups_pass_through_without_invented_fields | ✅ | 0.000 |  |
+| test_positions_normalisation_with_missing_optional_fields | ✅ | 0.000 |  |
+| test_positions_symbol_resolved_from_instrument_cache | ✅ | 0.001 |  |
+| test_rate_limiter_does_not_sleep_when_under_capacity | ✅ | 0.000 |  |
+| test_rate_limiter_spaces_calls_with_fake_clock | ✅ | 0.000 |  |
+| test_rate_normalisation | ✅ | 0.000 |  |
+| test_search_instruments_uses_live_probed_field_names | ✅ | 0.000 |  |
+| test_wait_for_fill_close_uses_pnl_arrays_not_orders_lookup | ✅ | 0.001 |  |
+| test_wait_for_fill_open_polls_until_filled | ✅ | 0.001 |  |
+| test_wait_for_fill_open_returns_last_state_when_exhausted | ✅ | 0.000 |  |
 
 ### test_evidence — 27 tests, 0.00 s
 
@@ -772,6 +822,42 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_tolerance_boundary_is_inclusive | ✅ | 0.000 |  |
 | test_two_sources_outside_tolerance_are_a_conflict_and_unused_without_tier_a | ✅ | 0.000 |  |
 | test_two_sources_within_tolerance_are_verified | ✅ | 0.000 |  |
+
+### test_execution — 31 tests, 0.01 s
+
+| test | status | seconds | note |
+|---|---|---:|---|
+| test_build_plan_blocks_below_min_position_exposure | ✅ | 0.000 |  |
+| test_build_plan_blocks_below_minimum_economic_order | ✅ | 0.000 |  |
+| test_build_plan_blocks_on_duplicate_symbol | ✅ | 0.000 |  |
+| test_build_plan_blocks_on_missing_min_position_exposure | ✅ | 0.000 |  |
+| test_build_plan_blocks_on_missing_red_team | ✅ | 0.000 |  |
+| test_build_plan_blocks_when_cash_insufficient | ✅ | 0.000 |  |
+| test_build_plan_blocks_when_sector_cap_breached | ✅ | 0.000 |  |
+| test_build_plan_blocks_when_single_stock_cap_breached | ✅ | 0.000 |  |
+| test_build_plan_happy_path_has_no_blockers_and_converts_currency | ✅ | 0.000 |  |
+| test_build_plan_rejects_invalid_mode | ✅ | 0.000 |  |
+| test_build_plan_rejects_missing_symbol | ✅ | 0.000 |  |
+| test_build_plan_rejects_non_positive_fx_rate | ✅ | 0.000 |  |
+| test_build_plan_sell_line_is_only_ever_explicit | ✅ | 0.000 |  |
+| test_build_plan_sell_requires_position_id | ✅ | 0.000 |  |
+| test_build_plan_token_is_deterministic_and_changes_with_content | ✅ | 0.000 |  |
+| test_build_plan_uses_red_team_by_symbol_fallback | ✅ | 0.000 |  |
+| test_decision_record_broker_fields_default_to_none_for_backward_compatibility | ✅ | 0.000 |  |
+| test_execute_allows_real_mode_with_both_gates | ✅ | 0.001 |  |
+| test_execute_does_not_refetch_cash_when_disabled | ✅ | 0.001 |  |
+| test_execute_happy_path_sends_and_records_ledger | ✅ | 0.001 |  |
+| test_execute_refuses_on_token_mismatch | ✅ | 0.001 |  |
+| test_execute_refuses_real_mode_when_only_argument_set | ✅ | 0.001 |  |
+| test_execute_refuses_real_mode_when_only_flag_set | ✅ | 0.001 |  |
+| test_execute_refuses_real_mode_without_double_gate | ✅ | 0.001 |  |
+| test_execute_refuses_when_blockers_present | ✅ | 0.001 |  |
+| test_execute_refuses_when_cash_dropped_since_plan_was_built | ✅ | 0.001 |  |
+| test_execute_sell_line_calls_close_position_not_open_order | ✅ | 0.001 |  |
+| test_execute_stops_at_first_failure_and_skips_the_rest | ✅ | 0.001 |  |
+| test_execute_treats_rejected_status_as_failure_not_sent | ✅ | 0.001 |  |
+| test_execution_plan_is_a_pydantic_model_round_trips_json | ✅ | 0.000 |  |
+| test_record_decision_accepts_broker_fields | ✅ | 0.001 |  |
 
 ### test_exposure — 34 tests, 0.01 s
 
@@ -830,12 +916,13 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_screen_returns_candidates_with_provenance_and_caches | ✅ | 0.001 |  |
 | test_validate_preset_rejects_unknown_option | ✅ | 0.000 |  |
 
-### test_finviz_universe — 15 tests, 0.01 s
+### test_finviz_universe — 17 tests, 0.01 s
 
 | test | status | seconds | note |
 |---|---|---:|---|
 | test_discover_universe_all_screens_failing_is_not_ok | ✅ | 0.000 |  |
 | test_discover_universe_caches_by_styles_sizes_per_screen | ✅ | 0.001 |  |
+| test_discover_universe_default_sizes_include_micro_and_nano | ✅ | 0.000 |  |
 | test_discover_universe_does_not_cache_a_fully_failed_sample | ✅ | 0.001 |  |
 | test_discover_universe_drops_rows_with_nan_ticker | ✅ | 0.001 |  |
 | test_discover_universe_empty_screen_is_not_a_failure | ✅ | 0.000 |  |
@@ -845,26 +932,27 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_discover_universe_rejects_unknown_style_or_size[bad_styles1-bad_sizes1] | ✅ | 0.000 |  |
 | test_discover_universe_runs_one_screen_per_style_size_pair_with_size_override | ✅ | 0.001 |  |
 | test_discover_universe_screener_factory_override_bypasses_provider_default | ✅ | 0.001 |  |
-| test_discover_universe_unions_and_dedupes_merging_styles_hit | ✅ | 0.001 |  |
+| test_discover_universe_unions_and_dedupes_merging_styles_hit | ✅ | 0.002 |  |
 | test_size_buckets_are_valid_finviz_market_cap_options | ✅ | 0.000 |  |
+| test_size_buckets_include_micro_and_nano_cap | ✅ | 0.000 |  |
 | test_style_order_covers_every_preset | ✅ | 0.000 |  |
 | test_style_order_names_are_valid_finviz_order_names | ✅ | 0.000 |  |
 
-### test_hook_etoro_allowlist — 11 tests, 0.50 s
+### test_hook_etoro_allowlist — 11 tests, 0.52 s
 
 | test | status | seconds | note |
 |---|---|---:|---|
-| test_basic_auth_and_bearer_on_command_line_are_still_denied | ✅ | 0.078 |  |
-| test_etoro_api_and_docs_urls_are_allowed[curl -s https://builders.etoro.com/learn/authentication-and-api-keys] | ✅ | 0.038 |  |
-| test_etoro_api_and_docs_urls_are_allowed[curl -s https://public-api.etoro.com/api/v2/trading/execution/demo/orders] | ✅ | 0.035 |  |
-| test_etoro_api_and_docs_urls_are_allowed[curl -s https://public-api.etoro.com/api/v2/trading/info/portfolio] | ✅ | 0.035 |  |
-| test_etoro_api_and_docs_urls_are_allowed[curl -sL -A 'portfolio-copilot' https://api-portal.etoro.com/ -o portal.html] | ✅ | 0.038 |  |
+| test_basic_auth_and_bearer_on_command_line_are_still_denied | ✅ | 0.079 |  |
+| test_etoro_api_and_docs_urls_are_allowed[curl -s https://builders.etoro.com/learn/authentication-and-api-keys] | ✅ | 0.037 |  |
+| test_etoro_api_and_docs_urls_are_allowed[curl -s https://public-api.etoro.com/api/v2/trading/execution/demo/orders] | ✅ | 0.037 |  |
+| test_etoro_api_and_docs_urls_are_allowed[curl -s https://public-api.etoro.com/api/v2/trading/info/portfolio] | ✅ | 0.039 |  |
+| test_etoro_api_and_docs_urls_are_allowed[curl -sL -A 'portfolio-copilot' https://api-portal.etoro.com/ -o portal.html] | ✅ | 0.046 |  |
 | test_etoro_api_and_docs_urls_are_allowed[uv run python -c "import httpx; httpx.post('https://public-api.etoro.com/api/v2/trading/execution/demo/orders', json={})"] | ✅ | 0.038 |  |
 | test_header_names_and_client_lib_in_docs_are_not_credentials | ✅ | 0.079 |  |
-| test_other_venues_and_credentials_still_denied[payload0] | ✅ | 0.039 |  |
-| test_other_venues_and_credentials_still_denied[payload1] | ✅ | 0.040 |  |
-| test_other_venues_and_credentials_still_denied[payload2] | ✅ | 0.039 |  |
-| test_other_venues_and_credentials_still_denied[payload3] | ✅ | 0.039 |  |
+| test_other_venues_and_credentials_still_denied[payload0] | ✅ | 0.042 |  |
+| test_other_venues_and_credentials_still_denied[payload1] | ✅ | 0.039 |  |
+| test_other_venues_and_credentials_still_denied[payload2] | ✅ | 0.038 |  |
+| test_other_venues_and_credentials_still_denied[payload3] | ✅ | 0.041 |  |
 
 ### test_investor_relations — 24 tests, 0.01 s
 
@@ -881,7 +969,7 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_investor_relations_accepts_website_without_scheme | ✅ | 0.001 |  |
 | test_investor_relations_all_404_returns_readable_result | ✅ | 0.000 |  |
 | test_investor_relations_finds_first_working_candidate | ✅ | 0.001 |  |
-| test_investor_relations_low_kind_diversity_gives_low_confidence | ✅ | 0.000 |  |
+| test_investor_relations_low_kind_diversity_gives_low_confidence | ✅ | 0.001 |  |
 | test_investor_relations_nav_only_page_with_no_dates_is_low_confidence | ✅ | 0.000 |  |
 | test_investor_relations_network_error_on_a_candidate_is_recorded_and_skipped | ✅ | 0.001 |  |
 | test_investor_relations_never_exceeds_request_cap | ✅ | 0.000 |  |
@@ -910,14 +998,14 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_evaluate_decisions_bad_date_is_unmeasurable_not_a_crash | ✅ | 0.001 |  |
 | test_evaluate_decisions_marks_nonpositive_price_unmeasurable_without_crashing | ✅ | 0.002 |  |
 | test_evaluate_decisions_nan_current_price_is_unmeasurable_not_a_poisoned_nan_alpha | ✅ | 0.002 |  |
-| test_evaluate_decisions_respects_min_days_and_marks_unmeasurable | ✅ | 0.001 |  |
+| test_evaluate_decisions_respects_min_days_and_marks_unmeasurable | ✅ | 0.002 |  |
 | test_evaluate_decisions_sell_treats_alternative_as_the_real_leg | ✅ | 0.001 |  |
 | test_load_decisions_raises_on_nan_price_instead_of_silently_loading_it | ✅ | 0.001 |  |
 | test_load_empty_ledger | ✅ | 0.001 |  |
-| test_optional_enrichment_fields_default_to_none_and_are_backward_compatible | ✅ | 0.002 |  |
-| test_optional_enrichment_fields_round_trip_through_record_and_load | ✅ | 0.002 |  |
+| test_optional_enrichment_fields_default_to_none_and_are_backward_compatible | ✅ | 0.001 |  |
+| test_optional_enrichment_fields_round_trip_through_record_and_load | ✅ | 0.001 |  |
 | test_record_and_load_roundtrip | ✅ | 0.002 |  |
-| test_record_decision_rejects_a_replayed_identical_id | ✅ | 0.002 |  |
+| test_record_decision_rejects_a_replayed_identical_id | ✅ | 0.001 |  |
 | test_record_rejects_invalid_action_or_confidence | ✅ | 0.001 |  |
 
 ### test_macro_providers — 31 tests, 0.00 s
@@ -933,7 +1021,7 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_eurostat_latest_degrades_on_non_numeric_value_entry | ✅ | 0.000 |  |
 | test_eurostat_reports_empty_geo_dimension_distinctly | ✅ | 0.000 |  |
 | test_hicp_annual_rate_returns_latest_non_null_and_caches | ✅ | 0.000 |  |
-| test_macro_snapshot_end_to_end_with_real_providers | ✅ | 0.001 |  |
+| test_macro_snapshot_end_to_end_with_real_providers | ✅ | 0.000 |  |
 | test_macro_snapshot_infinite_dfr_is_unknown_never_a_confident_regime | ✅ | 0.000 |  |
 | test_macro_snapshot_missing_dfr_is_unknown_never_guessed | ✅ | 0.000 |  |
 | test_macro_snapshot_missing_hicp_is_unknown_never_guessed | ✅ | 0.000 |  |
@@ -1059,7 +1147,7 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_yf_ticker_for_suffix_table[UW-] | ✅ | 0.000 |  |
 | test_yf_ticker_for_unknown_exchange_returns_none_without_a_request | ✅ | 0.000 |  |
 
-### test_opportunity — 22 tests, 0.01 s
+### test_opportunity — 22 tests, 0.00 s
 
 | test | status | seconds | note |
 |---|---|---:|---|
@@ -1076,7 +1164,7 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_report_bad_date_row_is_unmeasurable_not_a_crash | ✅ | 0.000 |  |
 | test_report_min_days_filters_recent_decisions | ✅ | 0.000 |  |
 | test_report_min_sample_gate_wording | ✅ | 0.000 |  |
-| test_report_neutral_when_regret_moderate | ✅ | 0.004 |  |
+| test_report_neutral_when_regret_moderate | ✅ | 0.000 |  |
 | test_report_review_process_when_mean_regret_is_high | ✅ | 0.000 |  |
 | test_report_skill_signal_when_regret_is_low_and_mostly_within_tolerance | ✅ | 0.000 |  |
 | test_sell_chosen_is_the_alternative_and_sold_symbol_becomes_kept_it_candidate | ✅ | 0.000 |  |
@@ -1086,19 +1174,19 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_sell_without_recorded_alternative_is_unmeasurable | ✅ | 0.000 |  |
 | test_unmeasurable_candidates_are_listed_by_name_with_reason | ✅ | 0.000 |  |
 
-### test_parser — 10 tests, 0.03 s
+### test_parser — 10 tests, 0.02 s
 
 | test | status | seconds | note |
 |---|---|---:|---|
 | test_delimiter_detection_ignores_commas_inside_numeric_cells | ✅ | 0.001 |  |
-| test_parse_bare_thousands_quantity_no_decimal_comma | ✅ | 0.002 |  |
+| test_parse_bare_thousands_quantity_no_decimal_comma | ✅ | 0.003 |  |
 | test_parse_does_not_false_positive_leverage_on_equity_name | ✅ | 0.002 |  |
 | test_parse_empty_and_unmappable_files | ✅ | 0.002 |  |
-| test_parse_ignores_total_row_label_variants | ✅ | 0.006 |  |
+| test_parse_ignores_total_row_label_variants | ✅ | 0.002 |  |
 | test_parse_layout_with_strumento_and_multiline_headers | ✅ | 0.002 |  |
 | test_parse_missing_pnl_pct_cell_stays_none | ✅ | 0.002 |  |
 | test_parse_page_export_with_preamble_ticker_lines_and_total_row | ✅ | 0.002 |  |
-| test_parse_synthetic_semicolon_csv | ✅ | 0.007 |  |
+| test_parse_synthetic_semicolon_csv | ✅ | 0.002 |  |
 | test_to_float_bare_italian_thousands_no_decimal | ✅ | 0.000 |  |
 
 ### test_picker — 45 tests, 0.00 s
@@ -1162,7 +1250,7 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_empty_universe_never_raises_and_reports_zero | ✅ | 0.001 |  |
 | test_forward_return_exact_arithmetic | ✅ | 0.001 |  |
 | test_forward_return_none_on_empty_series | ✅ | 0.000 |  |
-| test_forward_return_none_when_horizon_exceeds_available_history | ✅ | 0.001 |  |
+| test_forward_return_none_when_horizon_exceeds_available_history | ✅ | 0.000 |  |
 | test_fundamentals_use_filed_date_not_end_date | ✅ | 0.001 |  |
 | test_malformed_ticker_data_is_skipped_not_raised | ✅ | 0.002 |  |
 | test_momentum_excludes_price_moves_after_d | ✅ | 0.001 |  |
@@ -1189,10 +1277,10 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 
 | test | status | seconds | note |
 |---|---|---:|---|
-| test_build_plan_growth_profile_with_initial_orders_and_pooling | ✅ | 0.003 |  |
+| test_build_plan_growth_profile_with_initial_orders_and_pooling | ✅ | 0.004 |  |
 | test_build_plan_rejects_bad_inputs[kwargs0] | ✅ | 0.000 |  |
 | test_build_plan_rejects_bad_inputs[kwargs1] | ✅ | 0.000 |  |
-| test_build_plan_small_cash_keeps_unallocated_and_warns | ✅ | 0.003 |  |
+| test_build_plan_small_cash_keeps_unallocated_and_warns | ✅ | 0.004 |  |
 | test_calendar_handles_month_end_dates | ✅ | 0.000 |  |
 | test_calendar_marks_contributions_reviews_and_annual_review | ✅ | 0.000 |  |
 | test_contribution_cadence_pools_until_order_is_economic[10-12] | ✅ | 0.000 |  |
@@ -1203,7 +1291,7 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_contribution_cadence_pools_until_order_is_economic[24.59-12] | ✅ | 0.000 |  |
 | test_contribution_cadence_pools_until_order_is_economic[295-1] | ✅ | 0.000 |  |
 | test_contribution_cadence_rejects_zero | ✅ | 0.000 |  |
-| test_model_portfolios_are_valid_and_sum_to_one | ✅ | 0.003 |  |
+| test_model_portfolios_are_valid_and_sum_to_one | ✅ | 0.004 |  |
 | test_suggest_profile_is_conservative_and_deterministic[1-high-cautious] | ✅ | 0.000 |  |
 | test_suggest_profile_is_conservative_and_deterministic[10-low-balanced] | ✅ | 0.000 |  |
 | test_suggest_profile_is_conservative_and_deterministic[10-medium-growth] | ✅ | 0.000 |  |
@@ -1213,40 +1301,40 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_suggest_profile_is_conservative_and_deterministic[5-medium-balanced] | ✅ | 0.000 |  |
 | test_suggest_profile_rejects_unknown_risk | ✅ | 0.000 |  |
 
-### test_plugin — 39 tests, 0.93 s
+### test_plugin — 39 tests, 0.94 s
 
 | test | status | seconds | note |
 |---|---|---:|---|
 | test_architecture_doc_does_not_overclaim_provider_timeouts | ✅ | 0.001 |  |
 | test_buy_emitting_skills_invoke_red_team_before_buy_small | ✅ | 0.000 |  |
 | test_category_cap_skills_source_every_cap_from_config | ✅ | 0.000 |  |
-| test_claude_md_except_exception_convention_matches_code | ✅ | 0.013 |  |
+| test_claude_md_except_exception_convention_matches_code | ✅ | 0.018 |  |
 | test_config_sourcing_skills_use_the_config_tool_not_the_raw_file | ✅ | 0.001 |  |
 | test_every_expected_skill_exists_with_description | ✅ | 0.001 |  |
 | test_every_skill_states_no_broker_access_and_stays_short | ✅ | 0.001 |  |
-| test_guard_allows_local_exports_and_public_data[payload0] | ✅ | 0.040 |  |
+| test_guard_allows_local_exports_and_public_data[payload0] | ✅ | 0.039 |  |
 | test_guard_allows_local_exports_and_public_data[payload1] | ✅ | 0.041 |  |
 | test_guard_allows_local_exports_and_public_data[payload2] | ✅ | 0.040 |  |
-| test_guard_allows_local_exports_and_public_data[payload3] | ✅ | 0.038 |  |
-| test_guard_allows_local_exports_and_public_data[payload4] | ✅ | 0.040 |  |
-| test_guard_allows_local_exports_and_public_data[payload5] | ✅ | 0.039 |  |
-| test_guard_allows_urls_with_keyword_as_bare_substring[https://api.example.com/v2/authors/12345] | ✅ | 0.039 |  |
-| test_guard_allows_urls_with_keyword_as_bare_substring[https://developer.mozilla.org/en-US/docs/Web/API/Window/sessionStorage] | ✅ | 0.040 |  |
-| test_guard_allows_urls_with_keyword_as_bare_substring[https://docs.example.org/whitepaper/tokenomics.pdf] | ✅ | 0.039 |  |
-| test_guard_denies_additional_login_surface_paths[https://mybroker.example.com/accedi] | ✅ | 0.040 |  |
-| test_guard_denies_additional_login_surface_paths[https://mybroker.example.com/portal/dashboard] | ✅ | 0.038 |  |
-| test_guard_denies_additional_login_surface_paths[https://mybroker.example.com/signon] | ✅ | 0.039 |  |
-| test_guard_denies_auth_surfaces_and_credentials[payload0] | ✅ | 0.039 |  |
-| test_guard_denies_auth_surfaces_and_credentials[payload1] | ✅ | 0.039 |  |
-| test_guard_denies_auth_surfaces_and_credentials[payload2] | ✅ | 0.037 |  |
-| test_guard_denies_auth_surfaces_and_credentials[payload3] | ✅ | 0.036 |  |
-| test_guard_denies_auth_surfaces_and_credentials[payload4] | ✅ | 0.039 |  |
-| test_guard_denies_auth_surfaces_and_credentials[payload5] | ✅ | 0.040 |  |
-| test_guard_denies_auth_surfaces_and_credentials[payload6] | ✅ | 0.041 |  |
-| test_guard_denies_credentials_starting_a_non_first_line[payload0] | ✅ | 0.041 |  |
-| test_guard_denies_credentials_starting_a_non_first_line[payload1] | ✅ | 0.040 |  |
-| test_guard_denies_url_with_userinfo_credentials | ✅ | 0.044 |  |
-| test_guard_tolerates_malformed_input | ✅ | 0.039 |  |
+| test_guard_allows_local_exports_and_public_data[payload3] | ✅ | 0.040 |  |
+| test_guard_allows_local_exports_and_public_data[payload4] | ✅ | 0.038 |  |
+| test_guard_allows_local_exports_and_public_data[payload5] | ✅ | 0.038 |  |
+| test_guard_allows_urls_with_keyword_as_bare_substring[https://api.example.com/v2/authors/12345] | ✅ | 0.041 |  |
+| test_guard_allows_urls_with_keyword_as_bare_substring[https://developer.mozilla.org/en-US/docs/Web/API/Window/sessionStorage] | ✅ | 0.038 |  |
+| test_guard_allows_urls_with_keyword_as_bare_substring[https://docs.example.org/whitepaper/tokenomics.pdf] | ✅ | 0.038 |  |
+| test_guard_denies_additional_login_surface_paths[https://mybroker.example.com/accedi] | ✅ | 0.055 |  |
+| test_guard_denies_additional_login_surface_paths[https://mybroker.example.com/portal/dashboard] | ✅ | 0.040 |  |
+| test_guard_denies_additional_login_surface_paths[https://mybroker.example.com/signon] | ✅ | 0.041 |  |
+| test_guard_denies_auth_surfaces_and_credentials[payload0] | ✅ | 0.038 |  |
+| test_guard_denies_auth_surfaces_and_credentials[payload1] | ✅ | 0.038 |  |
+| test_guard_denies_auth_surfaces_and_credentials[payload2] | ✅ | 0.036 |  |
+| test_guard_denies_auth_surfaces_and_credentials[payload3] | ✅ | 0.037 |  |
+| test_guard_denies_auth_surfaces_and_credentials[payload4] | ✅ | 0.038 |  |
+| test_guard_denies_auth_surfaces_and_credentials[payload5] | ✅ | 0.042 |  |
+| test_guard_denies_auth_surfaces_and_credentials[payload6] | ✅ | 0.040 |  |
+| test_guard_denies_credentials_starting_a_non_first_line[payload0] | ✅ | 0.039 |  |
+| test_guard_denies_credentials_starting_a_non_first_line[payload1] | ✅ | 0.041 |  |
+| test_guard_denies_url_with_userinfo_credentials | ✅ | 0.039 |  |
+| test_guard_tolerates_malformed_input | ✅ | 0.040 |  |
 | test_hooks_json_wires_guard_and_banner | ✅ | 0.000 |  |
 | test_makefile_install_target_installs_dev_dependencies | ✅ | 0.001 |  |
 | test_plugin_and_marketplace_manifests_agree | ✅ | 0.000 |  |
@@ -1261,7 +1349,7 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 
 | test | status | seconds | note |
 |---|---|---:|---|
-| test_example_targets_use_model_portfolio_bucket_names | ✅ | 0.004 |  |
+| test_example_targets_use_model_portfolio_bucket_names | ✅ | 0.005 |  |
 | test_load_portfolio_config_falls_back_to_example_when_default_missing | ✅ | 0.003 |  |
 | test_load_portfolio_config_prefers_the_users_own_file_when_present | ✅ | 0.002 |  |
 | test_load_portfolio_config_raises_on_missing_explicit_path_without_falling_back | ✅ | 0.001 |  |
@@ -1364,6 +1452,54 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_summarize_portfolio_risk_unleveraged_only | ✅ | 0.000 |  |
 | test_summarize_portfolio_risk_with_leveraged_holdings | ✅ | 0.000 |  |
 
+### test_risk_profile — 43 tests, 0.03 s
+
+| test | status | seconds | note |
+|---|---|---:|---|
+| test_aggressive_thematic_profile_matches_spec_targets | ✅ | 0.004 |  |
+| test_drawdown_budget_missing_bucket_is_never_treated_as_zero | ✅ | 0.000 |  |
+| test_drawdown_budget_missing_observed_bucket_degrades_to_none_not_invented | ✅ | 0.000 |  |
+| test_drawdown_budget_partial_stress_override_keeps_other_defaults | ✅ | 0.000 |  |
+| test_drawdown_budget_uses_default_stress_when_not_supplied | ✅ | 0.000 |  |
+| test_drawdown_budget_weighted_observed_and_stress | ✅ | 0.000 |  |
+| test_every_target_bucket_used_by_a_profile_is_a_known_instrument_or_thematic_or_single_stocks | ✅ | 0.004 |  |
+| test_existing_risk_profile_schema_is_loadable | ✅ | 0.001 |  |
+| test_fits_both_false_when_observed_already_breaches_budget | ✅ | 0.000 |  |
+| test_fits_both_true_when_within_budget | ✅ | 0.000 |  |
+| test_fits_missing_data_reports_gap_not_a_guessed_boolean | ✅ | 0.000 |  |
+| test_fits_observed_true_stress_false_matches_worked_example | ✅ | 0.000 |  |
+| test_high_speculative_share_overrides_balanced_base_to_aggressive_thematic | ✅ | 0.000 |  |
+| test_high_speculative_share_overrides_growth_base_to_aggressive_thematic | ✅ | 0.000 |  |
+| test_horizon_at_3_years_is_not_cautious_on_that_ground_alone | ✅ | 0.000 |  |
+| test_leverage_flag_independent_of_profile_chosen | ✅ | 0.000 |  |
+| test_leverage_none_sets_no_flag[25] | ✅ | 0.000 |  |
+| test_leverage_none_sets_no_flag[40] | ✅ | 0.000 |  |
+| test_leverage_none_sets_no_flag[60] | ✅ | 0.000 |  |
+| test_leverage_other_than_none_sets_flag_but_same_profile[up_to_10] | ✅ | 0.000 |  |
+| test_leverage_other_than_none_sets_flag_but_same_profile[up_to_25] | ✅ | 0.000 |  |
+| test_load_risk_profile_raises_on_corrupted_file | ✅ | 0.001 |  |
+| test_load_risk_profile_returns_none_when_never_answered | ✅ | 0.001 |  |
+| test_long_horizon_and_would_hold_or_buy_is_growth | ✅ | 0.000 |  |
+| test_long_horizon_but_would_sell_falls_back_to_balanced | ✅ | 0.000 |  |
+| test_medium_horizon_is_balanced | ✅ | 0.000 |  |
+| test_model_portfolios_yaml_profiles_sum_to_one | ✅ | 0.004 |  |
+| test_no_emergency_fund_is_always_cautious_even_with_high_speculative_appetite | ✅ | 0.000 |  |
+| test_observed_drawdowns_empty_instruments_returns_empty_dict | ✅ | 0.000 |  |
+| test_observed_drawdowns_from_fixture | ✅ | 0.002 |  |
+| test_observed_drawdowns_missing_bucket_degrades_to_none | ✅ | 0.001 |  |
+| test_risk_answers_rejects_invalid_leverage | ✅ | 0.000 |  |
+| test_risk_answers_rejects_invalid_max_drawdown_pct | ✅ | 0.000 |  |
+| test_risk_answers_rejects_invalid_reaction | ✅ | 0.000 |  |
+| test_risk_answers_rejects_invalid_speculative_share_pct | ✅ | 0.000 |  |
+| test_risk_profile_path_created_under_home | ✅ | 0.001 |  |
+| test_save_and_load_roundtrip | ✅ | 0.002 |  |
+| test_save_risk_profile_appends_history_on_reask_without_losing_it | ✅ | 0.002 |  |
+| test_save_risk_profile_rejects_invalid_answers_dict | ✅ | 0.001 |  |
+| test_short_horizon_is_cautious | ✅ | 0.000 |  |
+| test_single_stocks_bucket_has_no_fixed_instrument_and_is_routed_to_etoro | ✅ | 0.004 |  |
+| test_speculative_share_just_below_threshold_does_not_trigger_aggressive_thematic | ✅ | 0.000 |  |
+| test_thematic_bucket_has_at_least_four_candidate_etfs_capped_at_5pct_each | ✅ | 0.004 |  |
+
 ### test_scoring — 3 tests, 0.00 s
 
 | test | status | seconds | note |
@@ -1408,7 +1544,7 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_extract_items_finds_1a_and_7_and_misses_9_gracefully | ✅ | 0.001 |  |
 | test_extract_items_strips_scripts_and_styles | ✅ | 0.000 |  |
 | test_filing_sections_foreign_filer_with_no_10k_is_readable_not_a_crash | ✅ | 0.000 |  |
-| test_filing_sections_happy_path_has_provenance_and_sections | ✅ | 0.000 |  |
+| test_filing_sections_happy_path_has_provenance_and_sections | ✅ | 0.001 |  |
 | test_filing_sections_unknown_ticker_is_readable_not_a_crash | ✅ | 0.000 |  |
 | test_filing_url_strips_dashes_from_accession | ✅ | 0.000 |  |
 | test_insider_activity_accepts_date_object_as_of | ✅ | 0.000 |  |
@@ -1434,22 +1570,22 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 |---|---|---:|---|
 | test_backtest_plan_degrades_when_usable_buckets_sum_to_zero_weight | ✅ | 0.000 |  |
 
-### test_server_capital_auction — 5 tests, 3.54 s
+### test_server_capital_auction — 5 tests, 2.52 s
 
 | test | status | seconds | note |
 |---|---|---:|---|
 | test_capital_auction_raises_tool_error_on_ambiguous_instruments_config | ✅ | 0.001 |  |
 | test_corrupted_theses_json_raises_tool_error_not_a_raw_crash | ✅ | 0.015 |  |
-| test_map_holdings_to_targets_raises_tool_error_on_ambiguous_instruments_config | ✅ | 0.001 |  |
-| test_negative_holding_value_never_crashes_the_auction | ✅ | 3.525 |  |
+| test_map_holdings_to_targets_raises_tool_error_on_ambiguous_instruments_config | ✅ | 0.000 |  |
+| test_negative_holding_value_never_crashes_the_auction | ✅ | 2.505 |  |
 | test_stock_cap_defaults_conservatively_when_risk_limits_missing | ✅ | 0.001 |  |
 
-### test_server_edge_quality — 6 tests, 5.46 s
+### test_server_edge_quality — 6 tests, 3.94 s
 
 | test | status | seconds | note |
 |---|---|---:|---|
-| test_analyze_stock_evidence_uses_pre_override_snapshot_for_the_cross_check | ✅ | 5.460 |  |
-| test_decision_quality_surfaces_price_provenance | ✅ | 0.000 |  |
+| test_analyze_stock_evidence_uses_pre_override_snapshot_for_the_cross_check | ✅ | 3.940 |  |
+| test_decision_quality_surfaces_price_provenance | ✅ | 0.001 |  |
 | test_investor_relations_links_no_website_carries_full_provenance | ✅ | 0.000 |  |
 | test_investor_relations_links_yfinance_failure_carries_full_provenance | ✅ | 0.000 |  |
 | test_log_decision_then_decision_quality_applies_bucket_rubric | ✅ | 0.002 |  |
@@ -1463,19 +1599,19 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_generate_order_plan_threads_variable_fee_pct_into_fee_model | ✅ | 0.000 |  |
 | test_rebalance_portfolio_threads_variable_fee_pct_into_fee_model | ✅ | 0.000 |  |
 
-### test_server_picker — 29 tests, 2.53 s
+### test_server_picker — 29 tests, 2.52 s
 
 | test | status | seconds | note |
 |---|---|---:|---|
 | test_analyze_stock_exposes_estimates_key | ✅ | 0.000 |  |
 | test_annual_fundamental_rows_keeps_earliest_filed_per_end | ✅ | 0.001 |  |
-| test_annual_fundamental_rows_scans_every_tag_without_early_break | ✅ | 0.001 |  |
+| test_annual_fundamental_rows_scans_every_tag_without_early_break | ✅ | 0.000 |  |
 | test_backtest_picker_happy_path_skips_ticker_with_no_price_history | ✅ | 0.006 |  |
 | test_backtest_picker_reports_missing_benchmark | ✅ | 0.000 |  |
 | test_discover_stocks_default_mode_is_universe_and_forwards_styles_sizes | ✅ | 0.000 |  |
 | test_discover_stocks_preset_mode_matches_old_behaviour | ✅ | 0.000 |  |
 | test_discover_stocks_unknown_mode_raises_tool_error | ✅ | 0.000 |  |
-| test_discover_stocks_unknown_preset_still_raises_tool_error_regardless_of_mode | ✅ | 0.000 |  |
+| test_discover_stocks_unknown_preset_still_raises_tool_error_regardless_of_mode | ✅ | 0.001 |  |
 | test_enrich_snapshot_degrades_to_none_and_notes_when_everything_fails | ✅ | 0.000 |  |
 | test_enrich_snapshot_does_not_raise_a_lower_original_confidence | ✅ | 0.000 |  |
 | test_enrich_snapshot_fills_revisions_and_catalysts_fields_on_success | ✅ | 0.000 |  |
@@ -1486,7 +1622,7 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_fetch_asfiled_fundamentals_merges_revenue_and_eps_by_end | ✅ | 0.001 |  |
 | test_map_holdings_resolver_adds_ticker_only_on_success | ✅ | 0.001 |  |
 | test_map_holdings_resolver_failure_degrades_silently | ✅ | 0.001 |  |
-| test_map_holdings_resolver_skipped_when_symbol_already_present | ✅ | 0.001 |  |
+| test_map_holdings_resolver_skipped_when_symbol_already_present | ✅ | 0.000 |  |
 | test_map_holdings_without_resolver_is_byte_for_byte_unchanged | ✅ | 0.001 |  |
 | test_rank_candidates_min_confidence_surfaces_low_confidence_tag | ✅ | 0.000 |  |
 | test_rank_candidates_ranks_every_ticker_without_excluding_anything | ✅ | 0.000 |  |
@@ -1494,7 +1630,7 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_resolve_isins_attaches_yf_ticker_when_exch_code_given | ✅ | 0.000 |  |
 | test_resolve_isins_does_not_leak_stale_errors_from_an_unrelated_prior_call | ✅ | 2.507 |  |
 | test_resolve_isins_no_exch_code_never_invents_a_yf_ticker | ✅ | 0.000 |  |
-| test_resolve_isins_raises_tool_error_on_http_failure | ✅ | 0.003 |  |
+| test_resolve_isins_raises_tool_error_on_http_failure | ✅ | 0.002 |  |
 | test_screen_stocks_reports_error_without_crashing_and_does_not_need_estimates_mock | ✅ | 0.000 |  |
 
 ### test_server_portfolio_config — 2 tests, 0.01 s
@@ -1532,7 +1668,7 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_generate_order_plan_schema_documents_current_values_and_targets_units | ✅ | 0.000 |  |
 | test_rebalance_portfolio_schema_documents_current_values_and_targets_units | ✅ | 0.000 |  |
 
-### test_server_snapshots_opportunity — 15 tests, 0.02 s
+### test_server_snapshots_opportunity — 15 tests, 0.03 s
 
 | test | status | seconds | note |
 |---|---|---:|---|
@@ -1548,16 +1684,16 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_review_decisions_opportunity_marks_candidate_unmeasurable_on_price_failure | ✅ | 0.001 |  |
 | test_review_decisions_opportunity_section_measures_regret_and_skips_cash_pricing | ✅ | 0.001 |  |
 | test_save_portfolio_snapshot_maps_buckets_and_defaults_as_of | ✅ | 0.002 |  |
-| test_save_portfolio_snapshot_prefers_investment_plan_targets_over_config | ✅ | 0.002 |  |
+| test_save_portfolio_snapshot_prefers_investment_plan_targets_over_config | ✅ | 0.003 |  |
 | test_save_portfolio_snapshot_raises_tool_error_on_bad_export_path | ✅ | 0.001 |  |
-| test_save_portfolio_snapshot_refuses_overwrite_without_force | ✅ | 0.002 |  |
+| test_save_portfolio_snapshot_refuses_overwrite_without_force | ✅ | 0.003 |  |
 
 ### test_server_tool_errors — 16 tests, 0.01 s
 
 | test | status | seconds | note |
 |---|---|---:|---|
 | test_allocate_cash_raises_tool_error_with_message_when_targets_dont_sum_to_one | ✅ | 0.001 |  |
-| test_build_investment_plan_raises_tool_error_on_invalid_risk_tolerance | ✅ | 0.003 |  |
+| test_build_investment_plan_raises_tool_error_on_invalid_risk_tolerance | ✅ | 0.005 |  |
 | test_build_investment_plan_raises_tool_error_on_invalid_start_date | ✅ | 0.001 |  |
 | test_build_investment_plan_raises_tool_error_on_negative_cash_now | ✅ | 0.001 |  |
 | test_company_facts_degrades_instead_of_crashing_on_sec_http_error | ✅ | 0.000 |  |
@@ -1573,12 +1709,12 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_rebalance_portfolio_raises_tool_error_with_message_when_targets_dont_sum_to_one | ✅ | 0.000 |  |
 | test_review_decisions_raises_tool_error_on_corrupted_ledger_line | ✅ | 0.001 |  |
 
-### test_server_tools — 2 tests, 1.29 s
+### test_server_tools — 2 tests, 1.36 s
 
 | test | status | seconds | note |
 |---|---|---:|---|
-| test_tools_list_over_stdio_includes_every_new_tool | ✅ | 0.649 |  |
-| test_tools_list_over_stdio_still_includes_every_pre_existing_tool | ✅ | 0.639 |  |
+| test_tools_list_over_stdio_includes_every_new_tool | ✅ | 0.690 |  |
+| test_tools_list_over_stdio_still_includes_every_pre_existing_tool | ✅ | 0.667 |  |
 
 ### test_snapshots — 20 tests, 0.03 s
 
@@ -1589,12 +1725,12 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_diff_snapshots_no_buckets_yields_no_bucket_change | ✅ | 0.002 |  |
 | test_latest_snapshot_none_when_no_snapshots_exist | ✅ | 0.001 |  |
 | test_latest_snapshot_returns_most_recent | ✅ | 0.002 |  |
-| test_list_snapshots_sorted | ✅ | 0.002 |  |
+| test_list_snapshots_sorted | ✅ | 0.003 |  |
 | test_load_snapshot_corrupted_file_raises_clear_value_error | ✅ | 0.002 |  |
 | test_load_snapshot_missing_date_raises_file_not_found | ✅ | 0.001 |  |
 | test_load_snapshot_rejects_nan_total_value | ✅ | 0.001 |  |
-| test_load_snapshot_schema_mismatch_raises_clear_value_error | ✅ | 0.001 |  |
-| test_save_and_load_roundtrip | ✅ | 0.002 |  |
+| test_load_snapshot_schema_mismatch_raises_clear_value_error | ✅ | 0.002 |  |
+| test_save_and_load_roundtrip | ✅ | 0.003 |  |
 | test_save_force_overwrites_existing_date | ✅ | 0.002 |  |
 | test_save_refuses_to_overwrite_existing_date | ✅ | 0.002 |  |
 | test_save_rejects_non_iso_date | ✅ | 0.001 |  |
@@ -1605,30 +1741,53 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_save_snapshot_rejects_nan_quantity | ✅ | 0.001 |  |
 | test_snapshot_path_rejects_non_iso_as_of_to_prevent_path_traversal | ✅ | 0.001 |  |
 
-### test_thesis — 33 tests, 0.03 s
+### test_sources — 18 tests, 0.00 s
+
+| test | status | seconds | note |
+|---|---|---:|---|
+| test_account_banner_etoro_demo_default | ✅ | 0.000 |  |
+| test_account_banner_etoro_real | ✅ | 0.000 |  |
+| test_account_banner_export_names_the_file | ✅ | 0.000 |  |
+| test_account_banner_export_without_name_is_unnamed | ✅ | 0.000 |  |
+| test_account_banner_none | ✅ | 0.000 |  |
+| test_portfolio_from_etoro_asset_type_mapping | ✅ | 0.000 |  |
+| test_portfolio_from_etoro_cash_none_when_not_convertible | ✅ | 0.000 |  |
+| test_portfolio_from_etoro_converts_to_eur_with_fx_rate | ✅ | 0.000 |  |
+| test_portfolio_from_etoro_eur_account_never_needs_fx_rate | ✅ | 0.000 |  |
+| test_portfolio_from_etoro_leverage_defaults_to_one_when_missing | ✅ | 0.000 |  |
+| test_portfolio_from_etoro_missing_fields_become_none_never_invented | ✅ | 0.000 |  |
+| test_portfolio_from_etoro_name_falls_back_to_symbol | ✅ | 0.000 |  |
+| test_portfolio_from_etoro_uses_explicit_market_value_when_present | ✅ | 0.000 |  |
+| test_portfolio_from_etoro_without_fx_rate_keeps_account_currency | ✅ | 0.000 |  |
+| test_resolve_source_neither_available_is_none | ✅ | 0.000 |  |
+| test_resolve_source_no_path_uses_etoro_when_configured | ✅ | 0.000 |  |
+| test_resolve_source_path_given_is_always_export | ✅ | 0.000 |  |
+| test_source_unavailable_message_only_for_none | ✅ | 0.000 |  |
+
+### test_thesis — 33 tests, 0.02 s
 
 | test | status | seconds | note |
 |---|---|---:|---|
 | test_broken_at_exactly_half_boundary | ✅ | 0.000 |  |
 | test_broken_when_half_or_more_of_checkable_trip | ✅ | 0.000 |  |
-| test_check_thesis_blackout_after_broken_reports_unchanged_not_improved | ✅ | 0.003 |  |
+| test_check_thesis_blackout_after_broken_reports_unchanged_not_improved | ✅ | 0.002 |  |
 | test_check_thesis_finds_thesis_saved_with_stray_whitespace | ✅ | 0.002 |  |
-| test_check_thesis_full_flow_appends_history_and_reports_delta | ✅ | 0.003 |  |
+| test_check_thesis_full_flow_appends_history_and_reports_delta | ✅ | 0.002 |  |
 | test_check_thesis_strips_whitespace_from_lookup_symbol | ✅ | 0.002 |  |
 | test_check_thesis_unknown_symbol_raises | ✅ | 0.001 |  |
-| test_check_thesis_worsened_delta | ✅ | 0.003 |  |
+| test_check_thesis_worsened_delta | ✅ | 0.002 |  |
 | test_evaluate_thesis_is_pure_same_inputs_same_output_and_no_mutation | ✅ | 0.000 |  |
 | test_infinite_threshold_is_rejected_by_falsifier_validation | ✅ | 0.000 |  |
 | test_invalid_op_rejected | ✅ | 0.000 |  |
-| test_load_theses_raises_clear_value_error_on_corrupted_json | ✅ | 0.002 |  |
+| test_load_theses_raises_clear_value_error_on_corrupted_json | ✅ | 0.001 |  |
 | test_load_theses_raises_clear_value_error_on_invalid_schema | ✅ | 0.001 |  |
 | test_load_theses_returns_empty_dict_when_file_missing | ✅ | 0.001 |  |
 | test_nan_metric_is_treated_as_unavailable_not_as_did_not_trip | ✅ | 0.000 |  |
 | test_nan_threshold_is_rejected_by_falsifier_validation | ✅ | 0.000 |  |
 | test_partial_unavailable_metrics_only_count_available_ones | ✅ | 0.000 |  |
 | test_save_and_load_roundtrip | ✅ | 0.002 |  |
-| test_save_thesis_strips_whitespace_from_symbol | ✅ | 0.002 |  |
-| test_save_thesis_upserts_by_symbol | ✅ | 0.003 |  |
+| test_save_thesis_strips_whitespace_from_symbol | ✅ | 0.001 |  |
+| test_save_thesis_upserts_by_symbol | ✅ | 0.002 |  |
 | test_stable_when_no_falsifier_trips_and_no_history | ✅ | 0.000 |  |
 | test_status_delta_blackout_after_broken_is_not_improved | ✅ | 0.000 |  |
 | test_status_delta_blackout_after_weakening_is_not_improved | ✅ | 0.000 |  |
@@ -1643,12 +1802,31 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_write_theses_failure_never_corrupts_existing_file | ✅ | 0.002 |  |
 | test_write_theses_is_atomic_no_leftover_temp_file | ✅ | 0.001 |  |
 
+### test_venues — 14 tests, 0.00 s
+
+| test | status | seconds | note |
+|---|---|---:|---|
+| test_etoro_profile_is_fractional_usd | ✅ | 0.000 |  |
+| test_export_profile_is_whole_unit_eur | ✅ | 0.000 |  |
+| test_size_order_etoro_below_min_exposure_is_dropped | ✅ | 0.000 |  |
+| test_size_order_etoro_kept_amount_is_informational_units | ✅ | 0.000 |  |
+| test_size_order_etoro_no_min_exposure_never_drops_on_size | ✅ | 0.000 |  |
+| test_size_order_export_below_min_order_is_dropped_even_with_units | ✅ | 0.000 |  |
+| test_size_order_export_below_one_unit_is_dropped | ✅ | 0.000 |  |
+| test_size_order_export_never_rounds_up | ✅ | 0.000 |  |
+| test_size_order_export_whole_units_floor_and_kept | ✅ | 0.000 |  |
+| test_size_order_is_deterministic | ✅ | 0.000 |  |
+| test_size_order_missing_price_is_dropped_for_both_venues | ✅ | 0.000 |  |
+| test_size_order_non_positive_amount_is_dropped_for_both_venues | ✅ | 0.000 |  |
+| test_size_order_non_positive_price_is_dropped | ✅ | 0.000 |  |
+| test_venue_profile_is_a_pydantic_model | ✅ | 0.000 |  |
+
 ### test_yahooquery_fallback — 12 tests, 0.00 s
 
 | test | status | seconds | note |
 |---|---|---:|---|
 | test_fallback_all_providers_failing_raises_with_every_attempt_listed | ✅ | 0.000 |  |
-| test_fallback_get_monthly_closes_all_empty_returns_empty_frame_with_missing | ✅ | 0.000 |  |
+| test_fallback_get_monthly_closes_all_empty_returns_empty_frame_with_missing | ✅ | 0.001 |  |
 | test_fallback_get_monthly_closes_uses_first_provider_with_non_empty_data | ✅ | 0.001 |  |
 | test_fallback_min_price_required_false_accepts_first_result_even_without_price | ✅ | 0.000 |  |
 | test_fallback_picks_second_provider_when_first_has_no_price | ✅ | 0.000 |  |
@@ -1660,7 +1838,7 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_yahooquery_provider_requires_ticker | ✅ | 0.000 |  |
 | test_yahooquery_provider_wraps_library_exceptions_as_value_error | ✅ | 0.000 |  |
 
-### test_yfinance_estimates — 38 tests, 0.02 s
+### test_yfinance_estimates — 38 tests, 0.04 s
 
 | test | status | seconds | note |
 |---|---|---:|---|
@@ -1671,7 +1849,7 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_consensus_score_codomain_is_bounded_for_any_recommendation_mix[10-5-3-1-0] | ✅ | 0.001 |  |
 | test_consensus_score_codomain_is_bounded_for_any_recommendation_mix[3-3-3-3-3] | ✅ | 0.001 |  |
 | test_consensus_score_matches_engine_consumer_scale | ✅ | 0.000 |  |
-| test_consensus_score_never_exceeds_plus_minus_one | ✅ | 0.001 |  |
+| test_consensus_score_never_exceeds_plus_minus_one | ✅ | 0.028 |  |
 | test_derive_revision_momentum_arithmetic_and_window_filtering | ✅ | 0.000 |  |
 | test_derive_revision_momentum_ignores_future_events_beyond_as_of | ✅ | 0.000 |  |
 | test_derive_revision_momentum_no_events_returns_all_none | ✅ | 0.000 |  |
@@ -1680,14 +1858,14 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_fetch_estimates_all_missing_but_data_present_and_empty | ✅ | 0.000 |  |
 | test_fetch_estimates_all_sources_raise_degrades_gracefully_never_crashes | ✅ | 0.000 |  |
 | test_fetch_estimates_analyst_count_falls_back_to_recommendations_total | ✅ | 0.001 |  |
-| test_fetch_estimates_different_as_of_bypasses_cache | ✅ | 0.000 |  |
+| test_fetch_estimates_different_as_of_bypasses_cache | ✅ | 0.001 |  |
 | test_fetch_estimates_does_not_cache_a_fully_failed_fetch | ✅ | 0.000 |  |
 | test_fetch_estimates_empty_ticker_raises | ✅ | 0.000 |  |
 | test_fetch_estimates_happy_path_all_fields_available | ✅ | 0.002 |  |
-| test_fetch_estimates_malformed_calendar_scalar_earnings_date_degrades_not_crashes | ✅ | 0.001 |  |
+| test_fetch_estimates_malformed_calendar_scalar_earnings_date_degrades_not_crashes | ✅ | 0.000 |  |
 | test_fetch_estimates_nan_values_become_none | ✅ | 0.001 |  |
 | test_fetch_estimates_normalizes_and_strips_ticker | ✅ | 0.000 |  |
-| test_fetch_estimates_partial_failure_isolates_the_failing_group | ✅ | 0.002 |  |
+| test_fetch_estimates_partial_failure_isolates_the_failing_group | ✅ | 0.001 |  |
 | test_fetch_estimates_partial_success_is_still_cached | ✅ | 0.000 |  |
 | test_fetch_estimates_uses_cache_on_second_call | ✅ | 0.000 |  |
 | test_fetch_estimates_zero_or_negative_base_blocks_growth | ✅ | 0.001 |  |
@@ -1716,9 +1894,9 @@ Generated 2026-08-29 12:07 UTC by `scripts/test_report.py`. Every test is offlin
 | test_fetch_surprise_history_empty_result_is_labelled_not_fabricated | ✅ | 0.000 |  |
 | test_fetch_surprise_history_excludes_future_and_unreported_rows | ✅ | 0.001 |  |
 | test_fetch_surprise_history_handles_exception_without_crashing | ✅ | 0.000 |  |
-| test_fetch_surprise_history_nan_surprise_counts_toward_quarters_but_not_mean | ✅ | 0.001 |  |
+| test_fetch_surprise_history_nan_surprise_counts_toward_quarters_but_not_mean | ✅ | 0.000 |  |
 | test_fetch_surprise_history_negative_caches_a_failed_fetch_briefly | ✅ | 0.000 |  |
-| test_fetch_surprise_history_parses_and_sorts_tz_aware_rows | ✅ | 0.002 |  |
+| test_fetch_surprise_history_parses_and_sorts_tz_aware_rows | ✅ | 0.001 |  |
 | test_fetch_surprise_history_rejects_blank_ticker | ✅ | 0.000 |  |
 | test_fetch_surprise_history_returns_none_derived_stats_below_4_quarters | ✅ | 0.000 |  |
 | test_fetch_surprise_history_tz_naive_index_also_parses | ✅ | 0.001 |  |
