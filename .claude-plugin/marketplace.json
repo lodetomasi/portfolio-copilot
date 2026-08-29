@@ -9,7 +9,7 @@
     {
       "name": "portfolio-copilot",
       "description": "Investment plan with calendar, portfolio review, cash deployment, fee-aware rebalancing and stock picking on a LOCAL broker XLSX/CSV export. No broker login, no broker access, no order execution on your export account; on your own eToro account (opt-in), orders go out only after you confirm that exact plan, demo by default.",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "author": {
         "name": "Lorenzo De Tomasi"
       },
