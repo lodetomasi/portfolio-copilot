@@ -190,6 +190,12 @@ def test_annotate_size_bucket_micro():
     assert annotate(item, exposure=None, caps=CAPS)["size_bucket"] == "micro"
 
 
+def test_annotate_size_bucket_nano():
+    # True penny-stock territory (<$50mln): must not be understated as "micro".
+    item = _scored("NANO", score=80, confidence=0.9, market_cap=10e6)
+    assert annotate(item, exposure=None, caps=CAPS)["size_bucket"] == "nano"
+
+
 def test_annotate_size_bucket_boundaries_are_inclusive():
     exactly_mega = _scored("EM", score=1, confidence=1, market_cap=200e9)
     exactly_large = _scored("EL", score=1, confidence=1, market_cap=10e9)
