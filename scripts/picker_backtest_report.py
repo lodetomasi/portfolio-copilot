@@ -2,10 +2,12 @@
 scoring logic over free, point-in-time-honest data (see portfolio/picker_backtest.py for
 exactly what each proxy component measures and why it is not the production scorer).
 
-Universe: ~20 liquid US names spanning market caps and sectors (the picker ranks by
+Universe: ~40 liquid US names spanning market caps and sectors (the picker ranks by
 potential across the WHOLE universe -- no exclusion by size or index membership) against
-a world-equity benchmark. Quarterly rebalances over the last 5 years, 6-month forward
-horizon. Every number is a REPLAY, never a forecast; every structural limitation
+a world-equity benchmark. Quarterly rebalances over the last 8 years, 6-month forward
+horizon -- more names widen the top-quantile basket (less idiosyncratic single-name
+noise per period) and more periods give the t-stat more power, per the disclosed limits
+of a 20-name/5-year run. Every number is a REPLAY, never a forecast; every structural limitation
 (survivorship, Yahoo backfill risk, no transaction costs, event-dated-not-consensus
 revisions, small-sample warnings) is disclosed verbatim in the report.
 
@@ -36,23 +38,30 @@ from portfolio_copilot.providers.yfinance_surprises import fetch_surprise_histor
 
 OUT = ROOT / "docs" / "PICKER_BACKTEST.md"
 
-# ~20 liquid US names deliberately spanning market caps and sectors: mega-cap tech,
-# financials, healthcare, energy, staples, industrials and several small/mid caps. The
-# picker's binding principle is "no exclusion by size" -- this universe mixes them on
-# purpose rather than curating a large-cap-only sample.
+# ~40 liquid US names deliberately spanning market caps and sectors: mega-cap tech,
+# financials, healthcare, energy, staples, industrials, and mid/small caps across
+# consumer, retail, materials, utilities and energy. The picker's binding principle is
+# "no exclusion by size" -- this universe mixes them on purpose rather than curating a
+# large-cap-only sample; a bigger, more diverse universe also widens the top-quantile
+# basket (n_top = round(n_scored * 0.2)), reducing single-name noise in each period's
+# read.
 DEFAULT_UNIVERSE = [
     "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN",  # mega-cap tech
     "META", "JPM", "JNJ", "XOM", "PG",  # mega-cap, mixed sectors
     "COST", "UNH", "V", "HD", "CAT",  # large-cap, mixed sectors
-    "DE", "LULU", "ETSY", "CROX", "PLNT",  # mid/small-cap, mixed sectors
+    "DE", "GS", "HON", "LMT", "UPS",  # large/mid-cap, industrials & financials
+    "ABBV", "CVS", "TGT", "SBUX", "YUM",  # mid-cap, healthcare & consumer
+    "LULU", "ETSY", "CROX", "PLNT", "DECK",  # mid/small-cap, consumer discretionary
+    "FIVE", "WSM", "POOL", "CHWY", "RH",  # small/mid-cap, retail & specialty
+    "DVN", "FANG", "ALB", "NEE", "AWK",  # small/mid-cap, energy/materials/utilities
 ]
 BENCHMARK_PRIMARY = "VWCE.MI"
 BENCHMARK_FALLBACK = "ACWI"
 MIN_PRICE_ROWS = 252  # ~1 trading year; below this, momentum/forward-return can't work
 
-PRICE_PERIOD = "6y"
+PRICE_PERIOD = "12y"
 HORIZON_MONTHS = 6
-REBALANCE_YEARS = 5
+REBALANCE_YEARS = 8
 EPS_TAGS = ["EarningsPerShareDiluted", "EarningsPerShareBasic"]
 
 
@@ -258,6 +267,16 @@ def render_report(
     ]
     if skipped:
         lines.append(f"Skipped (insufficient price history): {', '.join(skipped)}.")
+    no_benchmark = sum(
+        1 for row in result["rows"] if row["top_return"] is not None and row["benchmark_return"] is None
+    )
+    if no_benchmark:
+        lines.append(
+            f"Note: {no_benchmark} of {len(rebalance_dates)} attempted rebalance dates predate "
+            f"`{benchmark_ticker}`'s own price history -- no benchmark forward return is computable "
+            "for them, so they are excluded from the aggregates below (but still show the picker's "
+            "own top-quantile return in the detail table)."
+        )
     lines += [
         "",
         "## Aggregates",

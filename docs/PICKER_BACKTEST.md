@@ -1,6 +1,6 @@
 # Stock-picker PROXY backtest
 
-Generated 2026-08-29 11:57 UTC by `scripts/picker_backtest_report.py`.
+Generated 2026-08-29 12:20 UTC by `scripts/picker_backtest_report.py`.
 
 > **Disclosed PROXY, not the production scorer.** This replays a simplified, point-in-time-honest proxy of `scoring/engine.py` -- price momentum, an as-filed fundamental-growth signal, an earnings-surprise track record, and analyst rating-change momentum -- on free data only. It is a REPLAY, not a forecast, and it is not the real V1 scorer (no quality/valuation/catalysts components here). See `portfolio/picker_backtest.py` for exactly what each proxy component measures.
 
@@ -16,40 +16,53 @@ Generated 2026-08-29 11:57 UTC by `scripts/picker_backtest_report.py`.
 
 Benchmark: `VWCE.MI`.
 
-Scored: 20/20 tickers -- AAPL, AMZN, CAT, COST, CROX, DE, ETSY, GOOGL, HD, JNJ, JPM, LULU, META, MSFT, NVDA, PG, PLNT, UNH, V, XOM.
+Scored: 40/40 tickers -- AAPL, ABBV, ALB, AMZN, AWK, CAT, CHWY, COST, CROX, CVS, DE, DECK, DVN, ETSY, FANG, FIVE, GOOGL, GS, HD, HON, JNJ, JPM, LMT, LULU, META, MSFT, NEE, NVDA, PG, PLNT, POOL, RH, SBUX, TGT, UNH, UPS, V, WSM, XOM, YUM.
+Note: 8 of 32 attempted rebalance dates predate `VWCE.MI`'s own price history -- no benchmark forward return is computable for them, so they are excluded from the aggregates below (but still show the picker's own top-quantile return in the detail table).
 
 ## Aggregates
 
 | metric | value |
 |---|---:|
-| rebalance dates attempted | 20 |
-| periods with a computable excess return | 20 |
-| mean excess return (top quantile equal-weight vs benchmark) | 1.33% |
-| hit rate (share of periods beating the benchmark) | 50.00% |
-| t-stat of excess return | 0.39 |
+| rebalance dates attempted | 32 |
+| periods with a computable excess return | 24 |
+| mean excess return (top quantile equal-weight vs benchmark) | 4.92% |
+| hit rate (share of periods beating the benchmark) | 62.50% |
+| t-stat of excess return | 1.76 |
 
 ## Per-rebalance detail
 
 | date | n scored | n top | n skipped | top return | benchmark return | excess | hit |
 |---|---:|---:|---:|---:|---:|---:|---|
-| 2021-04-01 | 20 | 4 | 0 | 28.28% | 6.35% | 21.93% | yes |
-| 2021-07-01 | 20 | 4 | 0 | 12.39% | 10.78% | 1.61% | yes |
-| 2021-10-01 | 20 | 4 | 0 | -11.98% | 6.11% | -18.08% | no |
-| 2022-01-01 | 20 | 4 | 0 | -27.20% | -13.59% | -13.61% | no |
-| 2022-04-01 | 20 | 4 | 0 | -14.28% | -9.97% | -4.31% | no |
-| 2022-07-01 | 20 | 4 | 0 | 7.68% | -0.26% | 7.94% | yes |
-| 2022-10-01 | 20 | 4 | 0 | 38.96% | 4.34% | 34.62% | yes |
-| 2023-01-01 | 20 | 4 | 0 | 3.94% | 11.62% | -7.68% | no |
-| 2023-04-01 | 20 | 4 | 0 | -7.48% | 6.10% | -13.58% | no |
-| 2023-07-01 | 20 | 4 | 0 | 18.28% | 5.62% | 12.66% | yes |
-| 2023-10-01 | 20 | 4 | 0 | 40.92% | 16.97% | 23.95% | yes |
-| 2024-01-01 | 20 | 4 | 0 | -9.71% | 14.92% | -24.63% | no |
-| 2024-04-01 | 20 | 4 | 0 | 10.16% | 6.05% | 4.12% | yes |
-| 2024-07-01 | 20 | 4 | 0 | 4.11% | 9.06% | -4.95% | no |
-| 2024-10-01 | 20 | 4 | 0 | -0.56% | 1.75% | -2.32% | no |
-| 2025-01-01 | 20 | 4 | 0 | 5.96% | -3.01% | 8.97% | yes |
-| 2025-04-01 | 20 | 4 | 0 | 16.77% | 10.10% | 6.67% | yes |
-| 2025-07-01 | 20 | 4 | 0 | 25.97% | 12.22% | 13.75% | yes |
-| 2025-10-01 | 20 | 4 | 0 | -8.07% | 3.11% | -11.18% | no |
-| 2026-01-01 | 20 | 4 | 0 | 4.83% | 14.09% | -9.26% | no |
+| 2018-04-01 | 39 | 8 | 1 | 37.56% | n/a | n/a | n/a |
+| 2018-07-01 | 39 | 8 | 1 | -7.82% | n/a | n/a | n/a |
+| 2018-10-01 | 39 | 8 | 1 | 2.59% | n/a | n/a | n/a |
+| 2019-01-01 | 39 | 8 | 1 | 24.94% | n/a | n/a | n/a |
+| 2019-04-01 | 39 | 8 | 1 | -0.51% | n/a | n/a | n/a |
+| 2019-07-01 | 40 | 8 | 0 | 6.23% | n/a | n/a | n/a |
+| 2019-10-01 | 40 | 8 | 0 | -23.50% | n/a | n/a | n/a |
+| 2020-01-01 | 40 | 8 | 0 | 11.56% | n/a | n/a | n/a |
+| 2020-04-01 | 40 | 8 | 0 | 66.76% | 24.74% | 42.02% | yes |
+| 2020-07-01 | 40 | 8 | 0 | 27.66% | 13.45% | 14.21% | yes |
+| 2020-10-01 | 40 | 8 | 0 | 28.54% | 20.17% | 8.37% | yes |
+| 2021-01-01 | 40 | 8 | 0 | 20.63% | 16.39% | 4.24% | yes |
+| 2021-04-01 | 40 | 8 | 0 | 24.28% | 6.35% | 17.93% | yes |
+| 2021-07-01 | 40 | 8 | 0 | 14.32% | 10.78% | 3.55% | yes |
+| 2021-10-01 | 40 | 8 | 0 | 0.49% | 6.11% | -5.61% | no |
+| 2022-01-01 | 40 | 8 | 0 | -26.56% | -13.59% | -12.97% | no |
+| 2022-04-01 | 40 | 8 | 0 | -13.76% | -9.97% | -3.79% | no |
+| 2022-07-01 | 40 | 8 | 0 | 8.09% | -0.26% | 8.35% | yes |
+| 2022-10-01 | 40 | 8 | 0 | 31.00% | 4.34% | 26.66% | yes |
+| 2023-01-01 | 40 | 8 | 0 | 4.18% | 11.62% | -7.44% | no |
+| 2023-04-01 | 40 | 8 | 0 | -5.53% | 6.10% | -11.63% | no |
+| 2023-07-01 | 40 | 8 | 0 | 11.66% | 5.62% | 6.04% | yes |
+| 2023-10-01 | 40 | 8 | 0 | 49.11% | 16.97% | 32.14% | yes |
+| 2024-01-01 | 40 | 8 | 0 | 12.24% | 14.92% | -2.68% | no |
+| 2024-04-01 | 40 | 8 | 0 | 10.21% | 6.05% | 4.16% | yes |
+| 2024-07-01 | 40 | 8 | 0 | 12.75% | 9.06% | 3.69% | yes |
+| 2024-10-01 | 40 | 8 | 0 | -6.78% | 1.75% | -8.53% | no |
+| 2025-01-01 | 40 | 8 | 0 | 1.51% | -3.01% | 4.52% | yes |
+| 2025-04-01 | 40 | 8 | 0 | 15.86% | 10.10% | 5.76% | yes |
+| 2025-07-01 | 40 | 8 | 0 | 13.63% | 12.22% | 1.40% | yes |
+| 2025-10-01 | 40 | 8 | 0 | -0.94% | 3.11% | -4.05% | no |
+| 2026-01-01 | 40 | 8 | 0 | 5.83% | 14.09% | -8.27% | no |
 
