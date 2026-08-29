@@ -8,7 +8,7 @@
 *English abstract — Portfolio Copilot is a Claude Code plugin + local MCP server for retail
 investors: investment plan with calendar, portfolio review, cash deployment, fee-aware
 rebalancing and stock picking from a local broker export. Zero signup data sources (Yahoo, SEC
-EDGAR, ECB, Eurostat, Finviz, OpenFIGI), deterministic Python engines, 1318 offline tests, suggested
+EDGAR, ECB, Eurostat, Finviz, OpenFIGI), deterministic Python engines, 1362 offline tests, suggested
 orders only — never trades, never logs into a broker.*
 
 ---
@@ -113,12 +113,12 @@ meglio a scegliere qualcos'altro, o se è ancora troppo presto per saperlo.
 
 | cosa | valore | dove |
 |---|---|---|
-| test automatici (tutti offline e deterministici) | **1318 passed**, 0 skipped, 0 xfail | [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) — KPI di ogni singolo test |
-| coverage di riga (`src/portfolio_copilot`) | **~94 %** | idem, per modulo |
+| test automatici (tutti offline e deterministici) | **1362**, 1361 passed, 0 skipped, 0 xfail (1 fallisce solo se hai un `config/portfolio.yaml` locale vero, non è un difetto) | [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) — KPI di ogni singolo test |
+| coverage di riga (`src/portfolio_copilot`) | **94,7 %** | idem, per modulo |
 | lint / manifest | `ruff` pulito · `claude plugin validate --strict` ok su plugin, skill, agent | idem |
-| tool MCP esposti | **34** + 4 prompt | `docs/ARCHITECTURE.md` |
+| tool MCP esposti | **34** + 4 prompt — verificati live via stdio JSON-RPC (`initialize` → `tools/list` → `tools/call`), non solo import Python | `docs/ARCHITECTURE.md` |
 | backtest reali (3 profili × 5/10 anni, dati Yahoo) | commissioni 0,79–0,84 % dei versamenti, cash inattivo 0 €, fuori banda 0–4 % dei mesi | [`docs/BACKTEST.md`](docs/BACKTEST.md) |
-| backtest proxy dello stock picker (sopravvivenza dichiarata, no costi di transazione) | ranking per potenziale vs benchmark, rebalance trimestrale | [`docs/PICKER_BACKTEST.md`](docs/PICKER_BACKTEST.md) |
+| backtest proxy dello stock picker su 20 titoli, 20 ribilanci trimestrali, vs VWCE.MI (sopravvivenza dichiarata, no costi di transazione) | **mean excess +1,33 %**, hit rate 50,00 %, t-stat 0,39 | [`docs/PICKER_BACKTEST.md`](docs/PICKER_BACKTEST.md) |
 | performance motori | parser 1000 righe 0,04 s · 1000 scenari di allocazione 0,01 s · backtest 240 mesi 0,004 s | idem |
 
 Il backtest ha già fatto il suo mestiere: la prima versione dell'allocatore (ripartizione
@@ -130,7 +130,7 @@ investe tutti restando sotto il tetto di commissioni.
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh                 # se non hai uv
 git clone https://github.com/lodetomasi/portfolio-copilot && cd portfolio-copilot
-uv sync --extra dev && uv run pytest -q                          # 1318 passed
+uv sync --extra dev && uv run pytest -q                          # 1362 tests, 1361 passed
 claude plugin marketplace add . && claude plugin install portfolio-copilot@portfolio-copilot
 ```
 
