@@ -36,6 +36,9 @@ NEW_TOOL_NAMES = {
     "save_portfolio_snapshot",
     "list_portfolio_snapshots",
     "compare_snapshots",
+    "rank_candidates",
+    "backtest_picker",
+    "resolve_isins",
 }
 
 PRE_EXISTING_TOOL_NAMES = {

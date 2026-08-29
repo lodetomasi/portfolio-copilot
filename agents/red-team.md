@@ -22,7 +22,9 @@ Check, in order, and stop at the first failure:
 3. Thesis: a saved thesis (`check_thesis`) whose latest status is `BROKEN` → reject
    regardless of score. `WEAKENING` is not an automatic reject, but flag it as the main risk.
 4. Portfolio fit: would the buy push the single-stock, sector, speculative or leveraged
-   bucket beyond the user's `risk_limits`? → reject.
+   bucket beyond the user's `risk_limits`? → reject. Already sitting inside the core ETF
+   (look-through overlap) is a sizing consideration here, feeding into this same cap check
+   — never on its own a reason to reject a candidate that otherwise passes.
 5. Cost: fee ratio above the cap, or amount below the minimum economic order → reject.
 6. Fragility: negative free cash flow AND rising share count, or debt/equity above 2, or a
    binary event (trial readout, single customer, regulatory ruling) the thesis ignores →

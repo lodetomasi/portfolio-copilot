@@ -23,9 +23,10 @@ analytics/merge.py   ── tier A overrides tier B, every override recorded ─
 analytics/evidence.py ── multi-source agreement (VERIFIED/CONFLICT/SINGLE_SOURCE) ┤
         │                                                                  │
         ▼                                                                  ▼
-scoring/engine.py  (growth/quality/valuation/momentum/risk → 0-100 + confidence)
+scoring/engine.py  (growth/quality/valuation/momentum/revisions/catalysts/risk → 0-100 + confidence)
         │
         ▼
+portfolio/picker.py     (rank by potential across the whole universe; tags, never filters)
 portfolio/exposure.py   (hidden theme/driver graph, config/exposure_graph.yaml)
 portfolio/thesis.py     (falsifiers, save_thesis/check_thesis, STABLE..BROKEN)
 portfolio/auction.py    (marginal-utility ranking of buckets + stocks + cash)
@@ -54,7 +55,7 @@ SUGGESTED MANUAL ORDERS → the user → their broker
 | Data layer, zero signup | done: Yahoo (yfinance + yahooquery fallback), SEC XBRL/filings, ECB FX/rates, Eurostat, Stooq, Finviz, IR crawler | `providers/` |
 | Evidence layer / source precedence | done: tier A (SEC) overrides tier B (Yahoo) for revenue growth & FCF (`provenance.overrides`); multi-source agreement flag (VERIFIED/CONFLICT/SINGLE_SOURCE/MISSING), a CONFLICT not resolved by a tier-A source is excluded from the score | `analytics/merge.py`, `analytics/evidence.py` |
 | Growth / Quality / Valuation / Momentum / Risk engines | done (linear normalisation, missing → excluded, weights renormalised) | `scoring/engine.py` |
-| Catalyst / Revisions engines | V2 — no free deterministic source wired; components stay `available: false` | — |
+| Catalyst / Revisions engines | done: tier B analyst estimates + event-dated rating changes (yfinance) and Yahoo earnings-surprise history, plus tier A Form 4/8-K event counts (US filers), wired into the snapshot before scoring; direction-agnostic catalysts (events ahead/behind, never good/bad news), thin-coverage (< 3 analysts) shrinks revisions toward neutral 50; `available: false` only when the free provider genuinely has no coverage (pure European local lines, no earnings-calendar history, no SEC CIK) | `server.py::_enrich_snapshot_with_free_data`, `providers/yfinance_estimates.py`, `providers/yfinance_surprises.py` |
 | Insider / Macro engines | done: Form 4/4-A filing-count activity signal (not a buy/sell tally); macro regime from Eurostat HICP + ECB deposit rate | `providers/sec_filings.py`, `providers/macro.py` |
 | Stock scoring | done (0-100 + confidence = f(coverage, provider confidence)) | `scoring/engine.py` |
 | Thesis engine (falsifiers, strengthening/weakening) | done: claims + quantitative falsifiers, deterministic status (STABLE/STRENGTHENING/WEAKENING/BROKEN/UNVERIFIABLE), no LLM judgement | `portfolio/thesis.py` |
@@ -65,7 +66,10 @@ SUGGESTED MANUAL ORDERS → the user → their broker
 | Decision ledger | done (append-only JSONL, local, git-ignored; optional category/theme/thesis_status/cap_eur) | `portfolio/ledger.py` |
 | Shadow portfolio / decision alpha | done (real vs recorded alternative, min 90 days, refuses conclusions < 10 decisions) | `portfolio/ledger.py` |
 | Personal edge / decision quality | done: mean alpha/hit-rate by category/theme (min-sample gated) and a 0-100 process-quality rubric independent of outcome | `portfolio/edge.py`, `portfolio/quality.py` |
-| Discovery (Finviz screener) | done: 3 validated presets, tier C, re-scored before use | `providers/finviz.py` |
+| Discovery (Finviz screener) | done: 3 validated presets (`mode='preset'`), tier C, re-scored before use; default `mode='universe'` samples every market-cap size bucket × style with NO exclusions -- big and small companies in the same net, size/index overlap are informational tags attached later, never a filter | `providers/finviz.py` (`discover_universe`) |
+| Stock picker (potential ranking + tags) | done: ranks the WHOLE scored set by potential (score desc, confidence desc, ticker asc) -- never drops a candidate; attaches `size_bucket`, `sector`/`lane`/`core_overlap_note`/`diversification` as information only. Only the caller's risk caps and the red team ever limit how big a resulting BUY is sized | `portfolio/picker.py` (`rank_by_potential`, `annotate`, `shortlist`), tool `rank_candidates` |
+| Picker proxy backtest (disclosed) | done: point-in-time-honest proxy (momentum, earnings-surprise track record, as-filed fundamental YoY growth, event-dated rating momentum) replayed at quarterly rebalance dates against a benchmark; NOT the production scorer. Mandatory disclosures always returned: survivorship bias (today's tickers only), Yahoo backfill risk, no transaction costs, event-dated (not true point-in-time consensus) revisions | `portfolio/picker_backtest.py`, tool `backtest_picker`, `scripts/picker_backtest_report.py` → `docs/PICKER_BACKTEST.md` |
+| ISIN → ticker resolution | done: free, keyless OpenFIGI `/v3/mapping` (tier A), rate-limited/cached/chunked; `yf_ticker_for` composes a Yahoo-style ticker for a handful of known exchanges. `portfolio/mapping.py::map_holdings` can take an optional resolver so a satellite holding with an ISIN but no ticker still gets a `resolved_ticker` -- never required, never invents one | `providers/openfigi.py`, tool `resolve_isins` |
 | Investment plan + calendar + check-in | done | `portfolio/plan.py`, skill `investment-plan` |
 | Backtest of the plan rules | done (monthly replay, synthetic-path property tests) | `portfolio/backtest.py` |
 | Snapshot store (monthly holdings memory) | done: one dated snapshot per check-in (holdings, bucket, total_value, plan_targets); `diff_snapshots` reports value change per holding/bucket but never splits it into contributions vs market move on its own | `portfolio/snapshots.py`, tools `save_portfolio_snapshot`/`list_portfolio_snapshots`/`compare_snapshots` |
@@ -76,11 +80,14 @@ SUGGESTED MANUAL ORDERS → the user → their broker
 ## Source tiers and fallback
 
 ```text
-tier A  official     SEC EDGAR XBRL/filings, ECB reference rates & deposit facility rate,
-                      Eurostat HICP/unemployment, a company's own investor-relations page
+tier A  official     SEC EDGAR XBRL/filings/Form 4/8-K, ECB reference rates & deposit
+                      facility rate, Eurostat HICP/unemployment, a company's own
+                      investor-relations page, OpenFIGI ISIN->ticker mapping (keyless)
 tier B  aggregator   Yahoo Finance (yfinance, with yahooquery as fallback), Stooq (price
-                      history fallback)
-tier C  crawler      Finviz (finvizfinance) — discovery only, never inside a score
+                      history fallback); yfinance analyst estimates, rating-change events
+                      and earnings-surprise history feed revisions/catalysts the same way
+tier C  crawler      Finviz (finvizfinance) — discovery only (single preset or the
+                      no-exclusion universe sampler across sizes/styles), never inside a score
 ```
 
 Rules: A overrides B (recorded); a multi-source CONFLICT not resolved by a tier-A pick is
@@ -102,7 +109,11 @@ respecting `robots.txt` (IR page crawler).
   `analytics/evidence.py` — multi-source agreement (VERIFIED/CONFLICT/SINGLE_SOURCE/MISSING).
 - `scoring/engine.py` — pure scoring on normalised snapshots.
 - `portfolio/` — `risk`, `exposure`, `thesis`, `auction`, `replacement`, `rebalance`, `plan`,
-  `backtest`, `ledger`, `edge`, `quality`, `mapping`, `orders`, `snapshots`, `opportunity`.
+  `backtest`, `ledger`, `edge`, `quality`, `mapping`, `orders`, `snapshots`, `opportunity`,
+  `picker` (potential ranking + tags), `picker_backtest` (disclosed proxy backtest).
+- `providers/yfinance_estimates.py` / `yfinance_surprises.py` — free analyst-estimate,
+  event-dated rating-change and earnings-surprise-history proxies feeding revisions/catalysts.
+- `providers/openfigi.py` — free, keyless ISIN → ticker/exchange mapping (tier A).
 - `server.py` — MCP tools and prompts only.
 
 ## Plugin layout (repo root = plugin root)
