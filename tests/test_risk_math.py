@@ -10,8 +10,10 @@ import pytest
 
 from portfolio_copilot.analytics.risk_math import (
     block_bootstrap_paths,
+    cvar,
     default_mean_block,
     drawdown_stats,
+    kelly_fraction,
     max_drawdown_per_path,
     monthly_returns,
     pac_value_paths,
@@ -169,3 +171,58 @@ def test_shortfall_stats_worked_example():
 def test_shortfall_stats_non_positive_contributed_raises():
     with pytest.raises(ValueError):
         shortfall_stats(np.array([[1.0]]), contributed_total=0.0)
+
+
+# ---------------------------------------------------------------------------
+# cvar (Rockafellar-Uryasev lambda estimator) + kelly_fraction
+# ---------------------------------------------------------------------------
+
+
+def test_cvar_uses_rockafellar_uryasev_lambda_estimator():
+    # perdite 0.01..0.30 (rendimenti -0.01..-0.30), n=30, alpha=0.95:
+    # k = ceil(28.5) = 29 -> VaR_loss = 0.29, psi = 29/30, lambda = 1/3,
+    # coda = {0.30} -> CVaR_loss = (1/3)*0.29 + (2/3)*0.30 = 0.2966667
+    returns = np.array([-(i / 100.0) for i in range(1, 31)])
+    result = cvar(returns, alpha=0.95)
+    assert result["var"] == pytest.approx(-0.29)
+    assert result["cvar"] == pytest.approx(-0.2966667, rel=1e-5)
+    assert result["n_tail_obs"] == 1
+    # la media semplice della coda (CVaR+) darebbe -0.30: l'estimatore giusto differisce
+    assert result["cvar"] != pytest.approx(-0.30)
+
+
+def test_cvar_lambda_zero_when_alpha_hits_an_atom():
+    # n=20, alpha=0.95: k = 19, psi = 19/20 = alpha -> lambda = 0 -> CVaR = CVaR+
+    returns = np.array([-(i / 100.0) for i in range(1, 21)])
+    result = cvar(returns, alpha=0.95)
+    assert result["var"] == pytest.approx(-0.19)
+    assert result["cvar"] == pytest.approx(-0.20)
+
+
+def test_cvar_invalid_inputs_raise():
+    with pytest.raises(ValueError):
+        cvar(np.array([]))
+    with pytest.raises(ValueError):
+        cvar(np.array([0.01, np.nan]))
+    with pytest.raises(ValueError):
+        cvar(np.array([0.01, -0.02]), alpha=1.0)
+
+
+def test_kelly_fraction_worked_examples():
+    assert kelly_fraction(0.6, 2.0, fraction=1.0) == pytest.approx(0.40)
+    assert kelly_fraction(0.6, 2.0) == pytest.approx(0.20)  # half-Kelly default
+
+
+def test_kelly_fraction_negative_edge_is_zero_never_negative():
+    assert kelly_fraction(0.3, 1.0) == 0.0
+
+
+def test_kelly_fraction_invalid_inputs_raise():
+    with pytest.raises(ValueError):
+        kelly_fraction(0.0, 2.0)
+    with pytest.raises(ValueError):
+        kelly_fraction(1.0, 2.0)
+    with pytest.raises(ValueError):
+        kelly_fraction(0.6, 0.0)
+    with pytest.raises(ValueError):
+        kelly_fraction(0.6, 2.0, fraction=0.0)

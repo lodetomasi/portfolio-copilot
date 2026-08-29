@@ -175,3 +175,55 @@ def shortfall_stats(pac_paths: np.ndarray, contributed_total: float) -> dict:
         "final_p50": float(np.percentile(final, 50)),
         "final_p95": float(np.percentile(final, 95)),
     }
+
+
+def cvar(returns_monthly: np.ndarray, alpha: float = 0.95) -> dict:
+    """Historical Expected Shortfall of monthly returns, reported in RETURN terms
+    (negative numbers), with the exact discrete estimator of Rockafellar & Uryasev
+    2000: ``CVaR = lambda * VaR + (1 - lambda) * CVaR+`` where ``lambda =
+    (psi(VaR) - alpha) / (1 - alpha)`` -- the plain tail mean is CVaR+ and is wrong
+    whenever alpha splits an atom of the empirical distribution.
+
+    Returns ``{"cvar", "var", "n_tail_obs", "alpha"}``; ``n_tail_obs`` (how many
+    observations sit beyond VaR) belongs next to the number wherever it is shown --
+    with 60-300 monthly observations the tail holds 3-15 points (Yamai & Yoshiba
+    2002), so the figure is an estimate with declared support, never false precision.
+    """
+    arr = np.asarray(returns_monthly, dtype=float)
+    if arr.size == 0:
+        raise ValueError("returns_monthly is empty")
+    if np.isnan(arr).any():
+        raise ValueError("returns_monthly contains NaN")
+    if not 0.0 < alpha < 1.0:
+        raise ValueError(f"alpha must be in (0, 1), got {alpha}")
+
+    losses = -arr
+    n = losses.size
+    k = int(np.ceil(alpha * n))
+    var_loss = float(np.sort(losses)[k - 1])
+    psi = float(np.mean(losses <= var_loss))
+    lam = (psi - alpha) / (1.0 - alpha)
+    tail = losses[losses > var_loss]
+    n_tail = int(tail.size)
+    cvar_plus = float(tail.mean()) if n_tail else var_loss
+    cvar_loss = lam * var_loss + (1.0 - lam) * cvar_plus
+    return {"cvar": -cvar_loss, "var": -var_loss, "n_tail_obs": n_tail, "alpha": alpha}
+
+
+def kelly_fraction(p_win: float, payoff_ratio: float, fraction: float = 0.5) -> float:
+    """Fractional Kelly: ``max(0, p - (1 - p) / payoff_ratio) * fraction``.
+
+    Default 0.5 (half-Kelly): 75% of full-Kelly growth with P(double before halving)
+    0.89 vs 0.67 (MacLean-Thorp-Ziemba 2010), and estimated means carry ~10x the
+    error weight of variances (Chopra & Ziemba 1993) -- over-betting costs growth AND
+    safety, so the venue cap must always win over Kelly at the call site. A negative
+    edge returns 0.0: never a negative size.
+    """
+    if not 0.0 < p_win < 1.0:
+        raise ValueError(f"p_win must be in (0, 1), got {p_win}")
+    if payoff_ratio <= 0.0:
+        raise ValueError(f"payoff_ratio must be > 0, got {payoff_ratio}")
+    if not 0.0 < fraction <= 1.0:
+        raise ValueError(f"fraction must be in (0, 1], got {fraction}")
+    full = p_win - (1.0 - p_win) / payoff_ratio
+    return max(0.0, full * fraction)
