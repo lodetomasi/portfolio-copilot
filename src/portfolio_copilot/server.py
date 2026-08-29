@@ -7,17 +7,21 @@ from pathlib import Path
 from typing import Annotated
 
 import httpx
+import numpy as np
 import pandas as pd
 import yfinance as yf
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field, ValidationError
 
+from portfolio_copilot.analytics import risk_math
 from portfolio_copilot.analytics.merge import apply_evidence_report, apply_official_overrides
+from portfolio_copilot.brokers.etoro import EToroClient, load_credentials
 from portfolio_copilot.models import AssetType, StockSnapshot
 from portfolio_copilot.parsers.broker_export import parse_portfolio_export as _parse_export
 from portfolio_copilot.portfolio import auction as auction_module
 from portfolio_copilot.portfolio import edge as edge_module
+from portfolio_copilot.portfolio import execution as execution_module
 from portfolio_copilot.portfolio import exposure as exposure_module
 from portfolio_copilot.portfolio import opportunity as opportunity_module
 from portfolio_copilot.portfolio import picker as picker_module
@@ -36,8 +40,14 @@ from portfolio_copilot.portfolio.ledger import (
 from portfolio_copilot.portfolio.mapping import map_holdings as _map_holdings
 from portfolio_copilot.portfolio.plan import build_investment_plan as _build_plan
 from portfolio_copilot.portfolio.plan import load_model_portfolios as _load_model_portfolios
-from portfolio_copilot.portfolio.rebalance import FeeModel, allocate_cash_to_targets
+from portfolio_copilot.portfolio.rebalance import (
+    FeeModel,
+    allocate_cash_to_targets,
+    validate_targets,
+)
 from portfolio_copilot.portfolio.risk import summarize_portfolio_risk
+from portfolio_copilot.portfolio.risk_profile import load_risk_profile
+from portfolio_copilot.portfolio.sources import account_banner
 from portfolio_copilot.providers import macro as macro_module
 from portfolio_copilot.providers import sec_edgar as sec_edgar_module
 from portfolio_copilot.providers import sec_filings as sec_filings_module
@@ -1827,6 +1837,211 @@ def backtest_picker(
     return result
 
 
+# --------------------------------------------------------------------------------------
+# eToro tools (explicit user exception, see CLAUDE.md): read always allowed, orders only
+# through execution.build_plan -> execute with the user's per-plan confirmation token.
+# --------------------------------------------------------------------------------------
+
+_etoro_clients: dict[str, EToroClient] = {}
+
+
+def _etoro_client(mode: str | None = None) -> EToroClient | None:
+    """EToroClient for ``mode`` (default env ETORO_MODE, else 'demo'), or ``None`` when no
+    credentials are configured -- never raises for absence, never at import time. Cached
+    per mode so the rate limiter and the instrument cache survive across tool calls."""
+    resolved = (mode or os.environ.get("ETORO_MODE") or "demo").strip().lower()
+    if resolved not in ("demo", "real"):
+        raise ValueError(f"ETORO_MODE must be 'demo' or 'real', got {resolved!r}")
+    credentials = load_credentials()
+    if credentials is None:
+        return None
+    if resolved not in _etoro_clients:
+        _etoro_clients[resolved] = EToroClient(credentials, mode=resolved)
+    return _etoro_clients[resolved]
+
+
+def _etoro_unconfigured() -> dict:
+    return {
+        "ok": False,
+        "error": (
+            "eToro is not configured: set ETORO_API_KEY / ETORO_USER_KEY or "
+            "data/private/etoro.env"
+        ),
+    }
+
+
+@mcp.tool()
+def etoro_account(mode: str | None = None) -> dict:
+    """Cash and unrealized P/L of the user's own eToro account (tier A, read-only).
+    Returns ok=False when eToro credentials are not configured."""
+    client = _etoro_client(mode)
+    if client is None:
+        return _etoro_unconfigured()
+    result = client.account()
+    return {"ok": True, "banner": account_banner("etoro", mode=client.mode), **result}
+
+
+@mcp.tool()
+def etoro_positions(mode: str | None = None) -> dict:
+    """Open positions on the user's own eToro account (tier A, read-only), symbols
+    resolved via the instrument endpoint (one lookup per distinct instrument, cached).
+    A failed lookup leaves symbol/name None (never invented) and is listed in
+    lookup_errors."""
+    client = _etoro_client(mode)
+    if client is None:
+        return _etoro_unconfigured()
+    result = client.positions()
+    lookup_errors: dict[int, str] = {}
+    resolved: dict[int, dict] = {}
+    for position in result.get("positions", []):
+        instrument_id = position.get("instrument_id")
+        if position.get("symbol") is not None or instrument_id is None:
+            continue
+        if instrument_id not in resolved and instrument_id not in lookup_errors:
+            try:
+                resolved[instrument_id] = client.instrument(instrument_id)
+            except Exception as exc:  # noqa: BLE001 -- degrade to None, report the reason
+                lookup_errors[instrument_id] = f"{type(exc).__name__}: {exc}"
+        info = resolved.get(instrument_id)
+        if info:
+            position["symbol"] = info.get("symbol")
+            position["name"] = info.get("name")
+    return {
+        "ok": True,
+        "banner": account_banner("etoro", mode=client.mode),
+        "lookup_errors": lookup_errors,
+        **result,
+    }
+
+
+@mcp.tool()
+def etoro_orders(mode: str | None = None) -> dict:
+    """Pending order groups on the user's own eToro account (tier A, read-only)."""
+    client = _etoro_client(mode)
+    if client is None:
+        return _etoro_unconfigured()
+    return {"ok": True, "banner": account_banner("etoro", mode=client.mode), **client.orders()}
+
+
+@mcp.tool()
+def etoro_search_instrument(query: str) -> dict:
+    """Ticker/name search on eToro's market-data endpoint (needed to get the
+    instrument_id an order requires)."""
+    client = _etoro_client()
+    if client is None:
+        return _etoro_unconfigured()
+    result = client.search_instruments(query)
+    return {"ok": True, "banner": account_banner("etoro", mode=client.mode), **result}
+
+
+@mcp.tool()
+def prepare_execution(
+    orders: list[dict],
+    mode: str = "demo",
+    red_team_by_symbol: dict[str, str] | None = None,
+) -> dict:
+    """Turn already-decided suggested orders into a confirmable eToro ExecutionPlan.
+
+    Assembles account + positions from the eToro client, concentration caps from
+    get_portfolio_config, the venue fee model (eToro: zero commission on real stock/ETF,
+    see portfolio/venues.py::ETORO -- the real minimum is the per-instrument eligibility),
+    the ECB USD->EUR rate, and the stored risk profile, then calls execution.build_plan.
+    A buy order missing min_position_exposure gets it from the eligibility endpoint (a
+    failed check leaves None and build_plan raises its blocker -- never invented).
+    Declared assumption: every eToro position counts as a single stock for the risk
+    profile's speculative cap (this account is the single-stocks satellite).
+    Returns the plan (lines, checks, blockers, token) -- it sends NOTHING."""
+    client = _etoro_client(mode)
+    if client is None:
+        return _etoro_unconfigured()
+
+    rates, fx_error = _fx_rates_or_none()
+    usd_per_eur = (rates or {}).get("rates", {}).get("USD")
+    if usd_per_eur is None or usd_per_eur <= 0:
+        return {
+            "ok": False,
+            "error": f"no usable ECB USD rate, refusing to invent one: {fx_error or rates!r}",
+        }
+    fx_rate_eur_per_ccy = 1.0 / usd_per_eur
+
+    account = client.account()
+    raw_positions = client.positions().get("positions", [])
+    positions = []
+    for position in raw_positions:
+        amount = position.get("amount")
+        pnl = position.get("pnl")
+        value = amount + pnl if amount is not None and pnl is not None else amount
+        positions.append(
+            {"symbol": position.get("symbol"), "amount": value or 0.0, "is_stock": True}
+        )
+
+    enriched_orders = []
+    for order in orders:
+        order = dict(order)
+        if (
+            order.get("side", "buy") == "buy"
+            and order.get("min_position_exposure") is None
+            and order.get("instrument_id") is not None
+        ):
+            try:
+                eligibility = client.eligibility(order["instrument_id"])
+                order["min_position_exposure"] = eligibility.get("min_position_exposure")
+            except Exception:  # noqa: BLE001 -- leave None: build_plan's blocker fires
+                pass
+        enriched_orders.append(order)
+
+    cfg = _load_portfolio_config()
+    caps = {
+        "max_single_stock_weight": _stock_cap_weight(cfg),
+        "max_sector_weight": (cfg.get("risk_limits") or {}).get("max_sector_weight"),
+    }
+    # eToro venue: no commission on real (non-leveraged) stock/ETF orders.
+    fee_model = FeeModel(fixed_fee_eur=0.0, variable_fee_pct=0.0)
+
+    plan = execution_module.build_plan(
+        enriched_orders,
+        account,
+        positions,
+        caps,
+        fee_model,
+        fx_rate_eur_per_ccy,
+        mode,
+        red_team_by_symbol,
+        as_of=datetime.now(UTC).isoformat(),
+        risk_profile=load_risk_profile(),
+    )
+    return {
+        "ok": True,
+        "banner": account_banner("etoro", mode=client.mode),
+        "plan": plan.model_dump(),
+        "fx": {
+            "rate_eur_per_usd": fx_rate_eur_per_ccy,
+            "source": rates.get("source"),
+            "as_of": rates.get("as_of"),
+        },
+    }
+
+
+@mcp.tool()
+def execute_plan(plan: dict, token: str, allow_real: bool = False) -> dict:
+    """Send a prepare_execution plan to eToro, one line at a time, ONLY when ``token``
+    matches the plan's own token (the user's confirmation of that exact plan). Refuses on
+    any blocker. Real mode additionally requires allow_real=True AND env
+    ETORO_ALLOW_REAL=1 (the double gate lives in execution.execute, never here). Every
+    sent line is ledgered with the broker order id; re-running the same plan never
+    double-sends."""
+    plan_model = execution_module.ExecutionPlan.model_validate(plan)
+    client = _etoro_client(plan_model.mode)
+    if client is None:
+        return _etoro_unconfigured()
+    result = execution_module.execute(plan_model, token, client, allow_real=allow_real)
+    return {
+        "ok": result["failed"] is None,
+        "banner": account_banner("etoro", mode=plan_model.mode),
+        **result,
+    }
+
+
 @mcp.prompt()
 def portfolio_review(path: str) -> str:
     """Orchestrate a complete portfolio review."""
@@ -1887,6 +2102,112 @@ Then decide whether the best action is:
 Do not force an investment.
 All order suggestions must account for fees and remain manual-only.
 """
+
+
+@mcp.tool()
+def simulate_plan_risk(
+    tickers_by_bucket: dict[str, str],
+    weights: dict[str, float],
+    monthly_eur: float,
+    horizon_months: int,
+    n_paths: int = 10000,
+    seed: int = 42,
+    period: str = "max",
+) -> dict:
+    """Monte Carlo of the plan mix via stationary bootstrap of JOINT monthly returns:
+    max-drawdown distribution (severity convention p95_worst/p99_worst), shortfall vs
+    total contributed, historical CVaR (Rockafellar-Uryasev). A replay-based
+    simulation, not a forecast; every assumption is in `disclosures`."""
+    validate_targets(weights)
+    if horizon_months <= 0 or monthly_eur < 0:
+        return {"ok": False, "error": "horizon_months must be > 0 and monthly_eur >= 0"}
+    closes = provider.get_monthly_closes(tickers_by_bucket, period=period)
+    missing = list(closes.attrs.get("missing", []))
+    usable = {b: w for b, w in weights.items() if b in closes.columns}
+    total = sum(usable.values())
+    if not usable or total <= 0:
+        return {
+            "ok": False,
+            "error": "No usable price history for the requested buckets",
+            "missing_buckets": missing,
+        }
+    renormalized = {b: w / total for b, w in usable.items()}
+    returns = risk_math.monthly_returns(closes[list(renormalized)])
+    n_obs = len(returns)
+    mean_block = risk_math.default_mean_block(n_obs)
+    paths = risk_math.block_bootstrap_paths(
+        returns, months=horizon_months, n_paths=n_paths, seed=seed
+    )
+    w = np.array([renormalized[b] for b in returns.columns])
+    unit = risk_math.unit_value_paths(paths, w)
+    pac = risk_math.pac_value_paths(paths, w, monthly_contribution=monthly_eur)
+    contributed = monthly_eur * horizon_months
+    shortfall = risk_math.shortfall_stats(pac, contributed) if contributed > 0 else None
+    cvar_result = risk_math.cvar(returns.to_numpy() @ w, alpha=0.95)
+    warnings = []
+    if n_obs < 60:
+        warnings.append(
+            f"percentili di coda poco affidabili: solo {n_obs} mesi di storia"
+        )
+    window = [str(returns.index.min())[:10], str(returns.index.max())[:10]]
+    return {
+        "ok": True,
+        "drawdown_stats": risk_math.drawdown_stats(unit),
+        "shortfall_stats": shortfall,
+        "cvar_monthly_95": cvar_result["cvar"],
+        "contributed_total_eur": contributed,
+        "n_paths": n_paths,
+        "seed": seed,
+        "source": closes.attrs.get("source"),
+        "as_of": closes.attrs.get("as_of"),
+        "disclosures": {
+            "window": {b: window for b in returns.columns},
+            "n_obs": n_obs,
+            "mean_block": mean_block,
+            "method": (
+                f"stationary bootstrap, lunghezza blocco media {mean_block} mesi, "
+                "wrap circolare, ribilanciamento mensile"
+            ),
+            "n_start_indices": n_obs,
+            "var_monthly_95": cvar_result["var"],
+            "cvar_tail_obs": cvar_result["n_tail_obs"],
+            "not_a_forecast": True,
+            "warnings": warnings,
+            "renormalized_weights": renormalized,
+            "missing_buckets": missing,
+            "assumption": (
+                "nessuna commissione/tassa modellata; ribilanciamento mensile "
+                "(Vanguard 2010: la frequenza non cambia materialmente i risultati)"
+            ),
+        },
+    }
+
+
+@mcp.tool()
+def kelly_size(
+    p_win: float,
+    payoff_ratio: float,
+    sleeve_value_eur: float,
+    cap_pct: float,
+    fraction: float = 0.5,
+) -> dict:
+    """Half-Kelly position sizing (MacLean-Thorp-Ziemba 2010) for one satellite idea,
+    ALWAYS capped by the venue's per-name cap: the cap wins over Kelly, never the
+    other way around."""
+    if not 0.0 < p_win < 1.0 or payoff_ratio <= 0.0:
+        return {"ok": False, "error": "p_win must be in (0, 1) and payoff_ratio > 0"}
+    if sleeve_value_eur <= 0.0 or not 0.0 < cap_pct <= 1.0:
+        return {"ok": False, "error": "sleeve_value_eur must be > 0 and cap_pct in (0, 1]"}
+    kelly = risk_math.kelly_fraction(p_win, payoff_ratio, fraction=fraction)
+    applied = min(kelly, cap_pct)
+    return {
+        "ok": True,
+        "kelly_fraction": kelly,
+        "cap_pct": cap_pct,
+        "applied_fraction": applied,
+        "amount_eur": round(applied * sleeve_value_eur, 2),
+        "note": "half-Kelly default (MacLean-Thorp-Ziemba 2010); the venue cap always wins",
+    }
 
 
 def main() -> None:
