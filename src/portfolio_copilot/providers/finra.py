@@ -35,10 +35,13 @@ DAILY_PREFIXES = ("FORF", "CNMS")  # OTC first: that is where the pennies live
 MAX_WALKBACK_DAYS = 5
 MAX_REQUESTS_PER_SECOND = 4.0
 
-_ACTION_FLAGS = {
-    "reverse_split": "reverse split",
-    "bankruptcy": "bankrupt",
-    "deletion": "delet",
+# Live-verified 2026-08-29/30 contro gli schemi reali: consolidatedShortInterest filtra
+# su ``symbolCode``, thresholdList su ``issueSymbolIdentifier``, otcDailyList su
+# ``oldSymbolCode`` (il suo schema non ha issueSymbolIdentifier).
+_FILTER_FIELD = {
+    "consolidatedShortInterest": "symbolCode",
+    "otcDailyList": "oldSymbolCode",
+    "thresholdList": "issueSymbolIdentifier",
 }
 
 
@@ -82,14 +85,26 @@ class FINRAProvider:
         response = self._client.post(
             QUERY_URL.format(dataset=dataset),
             json={
+                # live-verified 2026-08-30: "limit" è OBBLIGATORIO (senza → HTTP 400)
+                # e compareType va MAIUSCOLO ("EQUAL") o il filtro viene ignorato.
+                "limit": 200,
                 "compareFilters": [
-                    {"fieldName": "symbolCode", "fieldValue": symbol, "compareType": "equal"}
-                ]
+                    {
+                        "fieldName": _FILTER_FIELD[dataset],
+                        "fieldValue": symbol,
+                        "compareType": "EQUAL",
+                    }
+                ],
             },
             headers={"Accept": "application/json"},
         )
-        if response.status_code != 200:
+        if response.status_code not in (200, 204):
             return self._fail(f"FINRA {dataset} answered HTTP {response.status_code}")
+        if response.status_code == 204 or not response.content.strip():
+            # live-verified 2026-08-30: zero righe = HTTP 204 (o 200 a corpo vuoto)
+            rows: list[dict] | dict = []
+            self._cache.set(key, rows)
+            return rows
         try:
             rows = response.json()
         except ValueError:
@@ -123,14 +138,24 @@ class FINRAProvider:
         )
 
     def corporate_actions(self, symbol: str) -> dict[str, Any]:
-        """OTC daily-list records for ``symbol`` with deterministic flags derived by a
-        case-insensitive scan of the record values (schema-drift tolerant)."""
+        """OTC daily-list records for ``symbol`` with deterministic flags read from the
+        schema's own fields (live-verified 2026-08-30): ``reverseSplitRate`` non-vuoto,
+        ``bankruptcyFlag``/``securityDeleteFlag`` == "Y"."""
         symbol = symbol.strip().upper()
         rows = self._query("otcDailyList", symbol)
         if isinstance(rows, dict):
             return rows
-        blob = " ".join(str(v) for row in rows for v in row.values()).lower()
-        flags = {name: needle in blob for name, needle in _ACTION_FLAGS.items()}
+        flags = {
+            "reverse_split": any(
+                row.get("reverseSplitRate") not in (None, "", 0) for row in rows
+            ),
+            "bankruptcy": any(
+                str(row.get("bankruptcyFlag", "")).upper() == "Y" for row in rows
+            ),
+            "deletion": any(
+                str(row.get("securityDeleteFlag", "")).upper() == "Y" for row in rows
+            ),
+        }
         return self._envelope({"ok": True, "symbol": symbol, "records": rows, **flags})
 
     def on_threshold_list(self, symbol: str) -> dict[str, Any]:
@@ -194,12 +219,14 @@ class FINRAProvider:
         return response.text
 
     @staticmethod
-    def _find_symbol_row(text: str, symbol: str) -> tuple[int, int] | None:
+    def _find_symbol_row(text: str, symbol: str) -> tuple[float, float] | None:
+        """I volumi nei file reali sono FLOAT (es. ``39027.690938``, live-verified
+        2026-08-29): mai ``int()``, avrebbe scartato righe valide."""
         for line in text.splitlines()[1:]:
             parts = line.split("|")
             if len(parts) >= 5 and parts[1].strip().upper() == symbol:
                 try:
-                    return int(parts[2]), int(parts[4])
+                    return float(parts[2]), float(parts[4])
                 except ValueError:
                     return None
         return None

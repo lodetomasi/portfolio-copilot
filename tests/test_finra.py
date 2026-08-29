@@ -29,13 +29,19 @@ SHORT_INTEREST_ROWS = [
 THRESHOLD_ROWS = [{"symbolCode": "GBUX", "tradeDate": "2026-08-28"}]
 
 DAILY_HEADER = "Date|Symbol|ShortVolume|ShortExemptVolume|TotalVolume|Market"
+# volumi FLOAT come nei file reali (verificato live 2026-08-29: "39027.690938")
 DAILY_FORF = f"{DAILY_HEADER}\n20260828|GBUX|60000|0|100000|ORF\n20260828|OTHR|1|0|2|ORF"
-DAILY_CNMS = f"{DAILY_HEADER}\n20260828|AAPL|100|0|400|B,Q,N"
+DAILY_CNMS = f"{DAILY_HEADER}\n20260828|AAPL|100.5|0|402.690938|B,Q,N"
 
+# Nomi campo REALI di otcDailyList (schema live-verified 2026-08-30): il simbolo è
+# oldSymbolCode/newSymbolCode, i flag sono campi dedicati, non testo libero.
 OTC_DAILY_ROWS = [
     {
-        "issueSymbolIdentifier": "GBUX",
-        "actionDescription": "Reverse Split 1:20",
+        "oldSymbolCode": "GBUX",
+        "newSymbolCode": "GBUXD",
+        "reverseSplitRate": 0.05,
+        "bankruptcyFlag": "N",
+        "securityDeleteFlag": "N",
         "dailyListDatetime": "2026-07-01",
     }
 ]
@@ -95,11 +101,13 @@ def test_daily_short_volume_found_in_forf_with_ratio():
     assert out["market_file"] == "FORF"
 
 
-def test_daily_short_volume_falls_back_to_cnms():
+def test_daily_short_volume_falls_back_to_cnms_and_parses_float_volumes():
     p = _provider(transport=_transport())
     out = p.daily_short_volume("AAPL", day=date(2026, 8, 28))
     assert out["ok"] is True
-    assert out["short_ratio"] == pytest.approx(0.25)
+    assert out["short_volume"] == pytest.approx(100.5)
+    assert out["total_volume"] == pytest.approx(402.690938)
+    assert out["short_ratio"] == pytest.approx(100.5 / 402.690938)
     assert out["market_file"] == "CNMS"
 
 
@@ -134,7 +142,15 @@ def test_corporate_actions_flags_reverse_split():
     assert out["ok"] is True
     assert out["reverse_split"] is True
     assert out["bankruptcy"] is False
+    assert out["deletion"] is False
     assert len(out["records"]) == 1
+
+
+def test_corporate_actions_bankruptcy_flag_field():
+    rows = [{"oldSymbolCode": "GBUX", "bankruptcyFlag": "Y", "reverseSplitRate": None}]
+    p = _provider(transport=_transport(otc_rows=rows))
+    out = p.corporate_actions("GBUX")
+    assert out["bankruptcy"] is True and out["reverse_split"] is False
 
 
 def test_threshold_list_membership():
@@ -144,21 +160,51 @@ def test_threshold_list_membership():
     assert p2.on_threshold_list("GBUX")["on_list"] is False
 
 
+@pytest.mark.parametrize("status,text", [(200, ""), (204, "")])
+def test_query_empty_answer_means_no_rows_not_an_error(status, text):
+    """Live-verified 2026-08-30: con zero righe la Query API risponde HTTP 204 (o 200
+    con corpo vuoto) — è un esito valido, mai un errore."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(status, text=text)
+
+    p = FINRAProvider(transport=httpx.MockTransport(handler), sleeper=lambda s: None)
+    out = p.on_threshold_list("GBUX")
+    assert out["ok"] is True and out["on_list"] is False
+
+
 def test_http_error_degrades_to_structured_result():
     p = _provider(transport=_transport(status=500))
     out = p.short_interest("GBUX")
     assert out["ok"] is False and "500" in out["error"]
 
 
-def test_symbol_filter_is_sent_in_post_body():
-    seen: dict = {}
+def test_symbol_filter_field_name_is_per_dataset():
+    """Live-verified 2026-08-29: consolidatedShortInterest filtra su symbolCode, ma
+    otcDailyList/thresholdList rispondono 400 con quel campo — usano
+    issueSymbolIdentifier."""
+    seen: dict[str, dict] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
-        if "consolidatedShortInterest" in str(request.url):
-            seen.update(json.loads(request.content.decode()))
-            return httpx.Response(200, json=SHORT_INTEREST_ROWS)
+        url = str(request.url)
+        body = json.loads(request.content.decode())
+        for dataset in ("consolidatedShortInterest", "otcDailyList", "thresholdList"):
+            if dataset in url:
+                seen[dataset] = body
+                rows = SHORT_INTEREST_ROWS if dataset == "consolidatedShortInterest" else []
+                return httpx.Response(200, json=rows)
         return httpx.Response(404)
 
     p = FINRAProvider(transport=httpx.MockTransport(handler), sleeper=lambda s: None)
     p.short_interest("GBUX")
-    assert seen["compareFilters"][0]["fieldValue"] == "GBUX"
+    p.corporate_actions("GBUX")
+    p.on_threshold_list("GBUX")
+    assert seen["consolidatedShortInterest"]["compareFilters"][0]["fieldName"] == "symbolCode"
+    assert seen["otcDailyList"]["compareFilters"][0]["fieldName"] == "oldSymbolCode"
+    assert seen["thresholdList"]["compareFilters"][0]["fieldName"] == "issueSymbolIdentifier"
+    assert seen["consolidatedShortInterest"]["compareFilters"][0]["fieldValue"] == "GBUX"
+    for dataset, body in seen.items():
+        # live-verified 2026-08-30: senza "limit" nel body la Query API risponde 400,
+        # e il compareType deve essere "EQUAL" maiuscolo o il filtro viene ignorato
+        assert body["limit"] > 0, dataset
+        assert body["compareFilters"][0]["compareType"] == "EQUAL", dataset
