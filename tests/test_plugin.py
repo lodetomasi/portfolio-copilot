@@ -398,15 +398,20 @@ def test_claude_md_except_exception_convention_matches_code():
 
 
 def test_readme_install_command_is_directory_agnostic():
-    """README.md's 3-command install hardcodes `cd portfolio-copilot`, implying the cloned
-    repo lives in a directory literally named `portfolio-copilot` (matching pyproject.toml's
-    package name). The real checkout can be named anything -- this very repo's own directory
-    still carries a pre-scrub, broker-specific name -- so a literal `cd portfolio-copilot`
-    run from the parent of the clone fails with 'No such file or directory'. The install
-    block must not assume a fixed directory name."""
-    text = (ROOT / "README.md").read_text(encoding="utf-8")
-    install_section = text.split("## Installazione", 1)[1].split("\n## ", 1)[0]
-    assert "cd portfolio-copilot" not in install_section, install_section
+    """README's install block must not assume a checkout directory name it did not create.
+    Since the project lives on GitHub as `portfolio-copilot`, `cd portfolio-copilot` is only
+    legitimate when the same block clones that repository first (the directory name is then
+    derived from the clone URL, not assumed from the user's local folder name)."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    start = readme.index("## Installazione")
+    install_section = readme[start : readme.index("## ", start + 5)]
+    if "cd portfolio-copilot" in install_section:
+        clone_then_cd = r"git clone \S+/portfolio-copilot(\.git)?\s*&&\s*cd portfolio-copilot"
+        assert re.search(clone_then_cd, install_section), (
+            "`cd portfolio-copilot` must follow `git clone .../portfolio-copilot` on the same line"
+        )
+    else:
+        assert "cd <" in install_section or "cd " not in install_section, install_section
 
 
 def test_makefile_install_target_installs_dev_dependencies():
