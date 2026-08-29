@@ -97,3 +97,81 @@ def block_bootstrap_paths(
     for t in range(1, months):
         idx[:, t] = np.where(keep[:, t], (idx[:, t - 1] + 1) % n_obs, starts[:, t])
     return values[idx]
+
+
+def portfolio_monthly_returns(asset_paths: np.ndarray, weights: np.ndarray) -> np.ndarray:
+    """Portfolio monthly return per path/month under MONTHLY REBALANCING to fixed
+    ``weights`` (declared assumption; Vanguard 2010: frequency does not materially
+    change risk-adjusted outcomes): the weighted sum of asset returns each month.
+    ``weights`` must be 1-D and match the asset axis."""
+    w = np.asarray(weights, dtype=float)
+    if w.ndim != 1 or asset_paths.shape[2] != w.size:
+        raise ValueError(
+            f"weights length {w.size} does not match n_assets {asset_paths.shape[2]}"
+        )
+    return asset_paths @ w
+
+
+def unit_value_paths(asset_paths: np.ndarray, weights: np.ndarray) -> np.ndarray:
+    """Value index paths starting at 1.0 (pure market movement, no flows)."""
+    port = portfolio_monthly_returns(asset_paths, weights)
+    return np.cumprod(1.0 + port, axis=1)
+
+
+def pac_value_paths(
+    asset_paths: np.ndarray,
+    weights: np.ndarray,
+    monthly_contribution: float,
+    initial: float = 0.0,
+) -> np.ndarray:
+    """Plan value paths: the contribution lands at month START, then the month's
+    portfolio return applies. Used for shortfall vs total contributed."""
+    port = portfolio_monthly_returns(asset_paths, weights)
+    n_paths, months = port.shape
+    values = np.empty((n_paths, months))
+    current = np.full(n_paths, float(initial))
+    for t in range(months):
+        current = (current + monthly_contribution) * (1.0 + port[:, t])
+        values[:, t] = current
+    return values
+
+
+def max_drawdown_per_path(unit_paths: np.ndarray) -> np.ndarray:
+    """Max drawdown of each unit-value path, INCLUDING the implicit 1.0 start
+    (a path that only falls from day one must not read as 0 drawdown). Signed
+    negative values (e.g. -0.55)."""
+    padded = np.concatenate(
+        [np.ones((unit_paths.shape[0], 1)), np.asarray(unit_paths, dtype=float)], axis=1
+    )
+    peaks = np.maximum.accumulate(padded, axis=1)
+    drawdowns = padded / peaks - 1.0
+    return drawdowns.min(axis=1)
+
+
+def drawdown_stats(unit_paths: np.ndarray) -> dict:
+    """Severity convention, fixed here and in the key names: ``p95_worst =
+    np.percentile(dd, 5)`` is the drawdown only 5% of paths exceed in severity
+    (values are signed negatives), ``p99_worst = np.percentile(dd, 1)``."""
+    dd = max_drawdown_per_path(unit_paths)
+    return {
+        "p50": float(np.percentile(dd, 50)),
+        "p95_worst": float(np.percentile(dd, 5)),
+        "p99_worst": float(np.percentile(dd, 1)),
+        "prob_worse_than": {
+            "-35%": float(np.mean(dd <= -0.35)),
+            "-50%": float(np.mean(dd <= -0.50)),
+        },
+    }
+
+
+def shortfall_stats(pac_paths: np.ndarray, contributed_total: float) -> dict:
+    """Final plan value vs total contributed, across paths."""
+    if contributed_total <= 0:
+        raise ValueError(f"contributed_total must be > 0, got {contributed_total}")
+    final = np.asarray(pac_paths, dtype=float)[:, -1]
+    return {
+        "prob_final_below_contributed": float(np.mean(final < contributed_total)),
+        "final_p5": float(np.percentile(final, 5)),
+        "final_p50": float(np.percentile(final, 50)),
+        "final_p95": float(np.percentile(final, 95)),
+    }

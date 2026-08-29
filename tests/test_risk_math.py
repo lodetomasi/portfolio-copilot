@@ -11,7 +11,13 @@ import pytest
 from portfolio_copilot.analytics.risk_math import (
     block_bootstrap_paths,
     default_mean_block,
+    drawdown_stats,
+    max_drawdown_per_path,
     monthly_returns,
+    pac_value_paths,
+    portfolio_monthly_returns,
+    shortfall_stats,
+    unit_value_paths,
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "risk_math_closes.csv"
@@ -103,3 +109,63 @@ def test_bootstrap_invalid_inputs_raise():
     broken.iloc[3, 1] = np.nan
     with pytest.raises(ValueError):
         block_bootstrap_paths(broken, months=12, n_paths=10, seed=1)
+
+
+# ---------------------------------------------------------------------------
+# value paths, drawdown_stats, shortfall_stats
+# ---------------------------------------------------------------------------
+
+
+def test_portfolio_monthly_returns_is_weighted_sum():
+    asset_paths = np.array([[[0.10, -0.02], [0.00, 0.04]]])  # 1 path, 2 mesi, 2 asset
+    port = portfolio_monthly_returns(asset_paths, np.array([0.5, 0.5]))
+    assert port == pytest.approx(np.array([[0.04, 0.02]]))
+
+
+def test_portfolio_monthly_returns_weight_mismatch_raises():
+    asset_paths = np.zeros((1, 2, 3))
+    with pytest.raises(ValueError):
+        portfolio_monthly_returns(asset_paths, np.array([0.5, 0.5]))
+
+
+def test_unit_value_paths_compounds_from_one():
+    asset_paths = np.array([[[0.10], [0.10]]])  # 1 path, 2 mesi, 1 asset
+    unit = unit_value_paths(asset_paths, np.array([1.0]))
+    assert unit == pytest.approx(np.array([[1.10, 1.21]]))
+
+
+def test_pac_value_paths_contributes_at_month_start():
+    asset_paths = np.array([[[0.10], [0.10]]])
+    pac = pac_value_paths(asset_paths, np.array([1.0]), monthly_contribution=100.0)
+    # (0+100)*1.1 = 110; (110+100)*1.1 = 231
+    assert pac == pytest.approx(np.array([[110.0, 231.0]]))
+
+
+def test_max_drawdown_per_path_prepends_the_unit_start():
+    rising = np.array([[1.1, 1.2]])
+    assert max_drawdown_per_path(rising) == pytest.approx(np.array([0.0]))
+    falling = np.array([[0.9]])
+    assert max_drawdown_per_path(falling) == pytest.approx(np.array([-0.1]))
+
+
+def test_drawdown_stats_severity_convention_worked_example():
+    # 100 path con max drawdown noto dd_i = -i/100 (i = 1..100)
+    unit_paths = np.array([[1.0 - i / 100.0] for i in range(1, 101)])
+    stats = drawdown_stats(unit_paths)
+    assert stats["p50"] == pytest.approx(-0.505)
+    assert stats["p95_worst"] == pytest.approx(-0.9505)  # MAI ~ -0.05
+    assert stats["p99_worst"] == pytest.approx(-0.9901)
+    assert stats["prob_worse_than"]["-35%"] == pytest.approx(0.66)
+    assert stats["prob_worse_than"]["-50%"] == pytest.approx(0.51)
+
+
+def test_shortfall_stats_worked_example():
+    pac_paths = np.array([[1000.0], [1300.0], [1100.0]])
+    stats = shortfall_stats(pac_paths, contributed_total=1200.0)
+    assert stats["prob_final_below_contributed"] == pytest.approx(2.0 / 3.0)
+    assert stats["final_p50"] == pytest.approx(1100.0)
+
+
+def test_shortfall_stats_non_positive_contributed_raises():
+    with pytest.raises(ValueError):
+        shortfall_stats(np.array([[1.0]]), contributed_total=0.0)
