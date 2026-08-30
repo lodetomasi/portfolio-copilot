@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 import math
 import os
+import time
+from contextlib import contextmanager
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Literal
@@ -19,6 +21,33 @@ from pydantic import BaseModel, Field, field_validator
 from portfolio_copilot.models import Decision
 
 DEFAULT_HOME = Path(__file__).resolve().parents[3] / "data" / "private"
+
+# Portable exclusive lock (no fcntl/msvcrt): an atomically-created .lock file guards the
+# read-check-append sequence in record_decision against concurrent writers.
+_LOCK_TIMEOUT_S = 5.0
+_LOCK_POLL_S = 0.05
+
+
+@contextmanager
+def _exclusive_lock(path: Path):
+    lock = path.with_name(path.name + ".lock")
+    deadline = time.monotonic() + _LOCK_TIMEOUT_S
+    while True:
+        try:
+            fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            break
+        except FileExistsError:
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"could not acquire ledger lock {lock} within {_LOCK_TIMEOUT_S}s; "
+                    "remove the stale .lock file if no other process is writing"
+                ) from None
+            time.sleep(_LOCK_POLL_S)
+    try:
+        yield
+    finally:
+        os.close(fd)
+        lock.unlink(missing_ok=True)
 
 
 def ledger_path(home: Path | str | None = None) -> Path:
@@ -74,6 +103,12 @@ class DecisionRecord(BaseModel):
     thesis_status: str | None = None  # ThesisCheck.status at decision time, for decision_quality
     cap_eur: float | None = None  # per-position EUR cap this decision was checked against
     decision_kind: str | None = None  # "bucket" for an index/bucket fill, else a stock pick
+    # Optional eToro-execution enrichment (portfolio.execution); default None so every
+    # existing decisions.jsonl line (recorded before eToro execution existed) still loads.
+    broker: str | None = None  # e.g. "etoro"; None for the manual/export-account flow
+    broker_order_id: str | None = None  # the broker's own order id, for traceability
+    mode: str | None = None  # "demo" | "real" for a broker-executed decision
+    plan_token: str | None = None  # sha256 token of the execution plan that sent this line
     # The ranking shown at decision time (capital auction / stock picker), for
     # portfolio.opportunity's after-the-fact regret measurement. Empty by default so
     # every existing decisions.jsonl line (recorded before this field existed) still loads.
@@ -96,20 +131,26 @@ def record_decision(record: dict, home: Path | str | None = None) -> DecisionRec
     could cross the min_sample gate off of a single real decision.
     """
     payload = dict(record)
-    payload.setdefault("date", date.today().isoformat())
+    # UTC, not local: evaluate_decisions misura i giorni contro datetime.now(UTC).date();
+    # con date.today() locale una decisione registrata tra le 00:00 e le 02:00 CEST era
+    # datata "domani" per l'UTC → days_held negativo → riga esclusa (bug visto live
+    # 2026-08-30 00:02, test_log_decision_then_decision_quality_applies_bucket_rubric).
+    payload.setdefault("date", datetime.now(UTC).date().isoformat())
     payload.setdefault("id", f"{payload['date']}:{payload['symbol'].upper()}:{payload['action']}")
     payload["symbol"] = payload["symbol"].upper()
     rec = DecisionRecord(**payload)
-    existing_ids = {d.id for d in load_decisions(home)}
-    if rec.id in existing_ids:
-        raise ValueError(
-            f"A decision with id {rec.id!r} is already recorded. Decisions are keyed by "
-            "date+symbol+action; recording the same one twice would double-count it in "
-            "every aggregate. Change the date, symbol or action if this is genuinely a "
-            "second, distinct decision."
-        )
-    with ledger_path(home).open("a", encoding="utf-8") as fh:
-        fh.write(rec.model_dump_json() + "\n")
+    path = ledger_path(home)
+    with _exclusive_lock(path):
+        existing_ids = {d.id for d in load_decisions(home)}
+        if rec.id in existing_ids:
+            raise ValueError(
+                f"A decision with id {rec.id!r} is already recorded. Decisions are keyed by "
+                "date+symbol+action; recording the same one twice would double-count it in "
+                "every aggregate. Change the date, symbol or action if this is genuinely a "
+                "second, distinct decision."
+            )
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(rec.model_dump_json() + "\n")
     return rec
 
 

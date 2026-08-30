@@ -39,6 +39,9 @@ NEW_TOOL_NAMES = {
     "rank_candidates",
     "backtest_picker",
     "resolve_isins",
+    "simulate_plan_risk",
+    "kelly_size",
+    "penny_flags",
 }
 
 PRE_EXISTING_TOOL_NAMES = {

@@ -316,3 +316,23 @@ def test_evaluate_decisions_marks_nonpositive_price_unmeasurable_without_crashin
     measured = next(r for r in report["rows"] if r["status"] == "measured")
     assert measured["id"] == "2026-01-01:GOOD:BUY"
     assert measured["real_return"] == pytest.approx(0.20)
+
+
+def test_record_decision_releases_the_lock_file(tmp_path):
+    record_decision({"symbol": "AAPL", "action": "BUY", "reason": "r"}, home=tmp_path)
+    assert not (tmp_path / "decisions.jsonl.lock").exists()
+
+
+def test_record_decision_times_out_on_stale_lock(tmp_path, monkeypatch):
+    from portfolio_copilot.portfolio import ledger as ledger_module
+
+    (tmp_path / "decisions.jsonl.lock").touch()
+    monkeypatch.setattr(ledger_module, "_LOCK_TIMEOUT_S", 0.1)
+    with pytest.raises(TimeoutError):
+        record_decision({"symbol": "AAPL", "action": "BUY", "reason": "r"}, home=tmp_path)
+    assert load_decisions(tmp_path) == []
+
+
+def test_decision_record_plan_token_defaults_to_none():
+    rec = DecisionRecord(id="x", date="2026-01-01", symbol="AAPL", action="BUY", reason="r")
+    assert rec.plan_token is None

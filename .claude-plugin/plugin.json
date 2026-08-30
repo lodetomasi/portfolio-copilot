@@ -1,8 +1,8 @@
 {
   "name": "portfolio-copilot",
   "displayName": "Portfolio Copilot",
-  "description": "Rookie in, expert processing, rookie out: investment plan with calendar, portfolio review, cash deployment, fee-aware rebalancing and stock picking on a LOCAL broker XLSX/CSV export. No broker login, no broker access, no order execution: suggested orders only (MANUAL_ONLY).",
-  "version": "0.3.1",
+  "description": "Rookie in, expert processing, rookie out: investment plan with calendar, portfolio review, cash deployment, fee-aware rebalancing and stock picking on a LOCAL broker XLSX/CSV export. No broker login, no broker access, no order execution on your export account: suggested orders only (MANUAL_ONLY). On your own eToro account (only if you configure it), orders are sent only after you confirm that exact plan, demo by default.",
+  "version": "0.4.0",
   "author": {
     "name": "Lorenzo De Tomasi"
   },

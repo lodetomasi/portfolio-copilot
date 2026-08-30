@@ -128,9 +128,14 @@ data/private/ (git-ignored): investment_plan.json, decisions.jsonl, theses.json,
 
 ## Security boundary
 
-Reads: explicit local files, public web data. Never: broker/bank login, cookies, credentials,
-OTP/PIN, order submission. The `PreToolUse` hook denies any tool call that touches an
-authentication surface (`/login`, `/auth`, `area-privata`, auth headers, credential strings).
+Reads: explicit local files, public web data. Never on the export account: broker/bank login,
+cookies, credentials, OTP/PIN, order submission. The `PreToolUse` hook denies any tool call
+that touches an authentication surface (`/login`, `/auth`, `area-privata`, auth headers,
+credential strings). Explicit user exception (see CLAUDE.md): the user's own eToro account via
+the eToro Public API v2 (`brokers/etoro.py`, keys only in `data/private/etoro.env`) — read
+always allowed, an order goes out only through `portfolio/execution.py` after the user confirms
+that exact plan's token; demo by default, real mode behind `allow_real=True` +
+`ETORO_ALLOW_REAL=1`.
 
 ## LLM boundary
 
